@@ -95,6 +95,7 @@ jobs:
           fi
           
           QUERY="${SEARCH_QUERY} created:>${SINCE_DATE} stars:>${MIN_STARS} sort:stars"
+          QUERY_ENCODED=$(printf '%s' "$QUERY" | jq -s -R -r @uri)
 
           echo "🔍 Searching with query: $QUERY"
 
@@ -116,7 +117,7 @@ jobs:
             -H "Authorization: token ${{ secrets.GITHUB_TOKEN }}" \
             -H "Accept: application/vnd.github.v3+json" \
             -H "X-GitHub-Api-Version: 2022-11-28" \
-            "https://api.github.com/search/repositories?q=${QUERY}&per_page=20")
+            "https://api.github.com/search/repositories?q=${QUERY_ENCODED}&per_page=20")
 
           # Validate response is valid JSON
           if ! echo "$RESPONSE" | jq empty >/dev/null 2>&1; then
@@ -182,6 +183,8 @@ jobs:
       added_skills: ${{ steps.add.outputs.added_skills }}
       has_changes: ${{ steps.add.outputs.has_changes }}
       pr_branch: ${{ steps.add.outputs.pr_branch }}
+      skipped_count: ${{ steps.add.outputs.skipped_count }}
+      failed_count: ${{ steps.add.outputs.failed_count }}
     steps:
       - name: Checkout repository
         uses: actions/checkout@v4
@@ -203,11 +206,13 @@ jobs:
             REPOS_JSON="${{ needs.discover-trending.outputs.trending_repos }}"
           fi
 
-          if echo "$REPOS_JSON" | jq -e '.[0].url' > /dev/null 2>&1; then
-            REPOS_JSON=$(echo "$REPOS_JSON" | jq -r '.[].url')
+          if ! echo "$REPOS_JSON" | jq empty >/dev/null 2>&1; then
+            echo "Invalid JSON for repositories, skipping"
+            echo "repos_to_add=0" >> $GITHUB_OUTPUT
+            exit 0
           fi
 
-          echo "$REPOS_JSON" | jq -r '.[]' > /tmp/repos_to_add.txt
+          echo "$REPOS_JSON" | jq -r 'map(.url // .)[]' > /tmp/repos_to_add.txt
 
           TOTAL=$(wc -l < /tmp/repos_to_add.txt)
           echo "Will process $TOTAL repositories"
@@ -231,10 +236,21 @@ jobs:
           TIMESTAMP=$(date +%s)
           BRANCH_NAME="auto-add-skills-${TIMESTAMP}"
 
+          if [[ "${{ steps.repos.outputs.repos_to_add }}" == "0" ]]; then
+            echo "No repositories to process"
+            echo "has_changes=false" >> $GITHUB_OUTPUT
+            echo "added_skills=[]" >> $GITHUB_OUTPUT
+            echo "skipped_count=0" >> $GITHUB_OUTPUT
+            echo "failed_count=0" >> $GITHUB_OUTPUT
+            exit 0
+          fi
+
           git checkout -b "$BRANCH_NAME"
           echo "pr_branch=$BRANCH_NAME" >> $GITHUB_OUTPUT
 
           declare -a ADDED_SKILLS=()
+          SKIPPED_COUNT=0
+          FAILED_COUNT=0
 
           # Use OpenCode AI for intelligent categorization
           echo "🤖 Using OpenCode AI categorization for all skills"
@@ -242,14 +258,16 @@ jobs:
           while IFS= read -r REPO_URL; do
             if grep -qF "$REPO_URL" /tmp/existing_submodules.txt 2>/dev/null; then
               echo "⏭️  Skipping existing submodule: $REPO_URL"
+              SKIPPED_COUNT=$((SKIPPED_COUNT + 1))
               continue
             fi
 
             echo "🔍 Processing $REPO_URL..."
 
             # Use OpenCode Zen for intelligent categorization (no API key required)
-            if opencode --model zen --repo "$REPO_URL" --prompt "Analyze this repository and categorize as: coding, frontend, research, devops, or general. Return just the category name." --format json 2>/dev/null; then
-              DETECTED_CATEGORY=$(opencode --model zen --repo "$REPO_URL" --prompt "Analyze this repository and categorize as: coding, frontend, research, devops, or general. Return just the category name." --format json 2>/dev/null | jq -r '.category // "general"' || echo "general")
+            OPENCODE_OUTPUT=$(opencode --model zen --repo "$REPO_URL" --prompt "Analyze this repository and categorize as: coding, frontend, research, devops, or general. Return just the category name." --format json 2>/dev/null || true)
+            if [[ -n "$OPENCODE_OUTPUT" ]] && echo "$OPENCODE_OUTPUT" | jq empty >/dev/null 2>&1; then
+              DETECTED_CATEGORY=$(echo "$OPENCODE_OUTPUT" | jq -r '.category // "general"' || echo "general")
               echo "✅ OpenCode Zen categorized as: $DETECTED_CATEGORY"
             else
               echo "⚠️ OpenCode Zen CLI not available, using basic analysis"
@@ -279,8 +297,12 @@ jobs:
               echo "✅ Added: $REPO_URL"
             else
               echo "❌ Failed to add: $REPO_URL"
+              FAILED_COUNT=$((FAILED_COUNT + 1))
             fi
           done < /tmp/repos_to_add.txt
+
+          echo "skipped_count=$SKIPPED_COUNT" >> $GITHUB_OUTPUT
+          echo "failed_count=$FAILED_COUNT" >> $GITHUB_OUTPUT
 
           if [[ ${#ADDED_SKILLS[@]} -eq 0 ]]; then
             echo "has_changes=false" >> $GITHUB_OUTPUT
