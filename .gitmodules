@@ -7,3 +7,6 @@
 [submodule "skills/general/mcp-progressive-agentskill"]
 	path = skills/general/mcp-progressive-agentskill
 	url = https://github.com/cablate/mcp-progressive-agentskill
+[submodule "skills/general/marketplace"]
+	path = skills/general/marketplace
+	url = https://github.com/aiskillstore/marketplace
