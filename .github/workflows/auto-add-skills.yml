@@ -1,9 +1,9 @@
 name: Auto-Add Trending Skills
 
 on:
-  # Run weekly on Monday at 9 AM UTC
+  # Run every 8 hours
   schedule:
-    - cron: '0 9 * * 1'
+    - cron: '0 */8 * * *'
 
   # Allow manual trigger
   workflow_dispatch:
@@ -207,7 +207,6 @@ jobs:
       - name: Add skills as submodules
         id: add
         run: |
-          CATEGORY="${{ github.event.inputs.category || 'general' }}"
           ISSUE_NUMBER="${{ github.event.issue.number || 'auto' }}"
           TIMESTAMP=$(date +%s)
           BRANCH_NAME="auto-add-skills-${TIMESTAMP}"
@@ -230,8 +229,159 @@ jobs:
             REPO_PATH=$(echo "$REPO_URL" | sed 's|https://github.com/||')
             REPO_NAME=$(basename "$REPO_URL")
 
-            # Determine category based on repo name (fallback to selected category)
-            DETECTED_CATEGORY=$(echo "$REPO_NAME" | tr '[:upper:]' '[:lower:]' | grep -oE '^(coding|frontend|research|devops|general)' || echo "$CATEGORY")
+            # Detect category using OpenCode-style analysis
+            echo "🔍 Analyzing $REPO_URL to determine category..."
+
+            # Get repository metadata from GitHub API
+            REPO_API_URL=$(echo "$REPO_URL" | sed 's|https://github.com/|https://api.github.com/repos/|')
+            REPO_DATA=$(curl -s -H "Authorization: token ${{ secrets.GITHUB_TOKEN }}" "$REPO_API_URL")
+
+            DESCRIPTION=$(echo "$REPO_DATA" | jq -r '.description // ""')
+            LANGUAGE=$(echo "$REPO_DATA" | jq -r '.language // ""')
+            TOPICS=$(echo "$REPO_DATA" | jq -r '.topics[]' 2>/dev/null | tr '\n' ' ' || echo "")
+
+            echo "📊 Repo data:"
+            echo "  - Description: $DESCRIPTION"
+            echo "  - Language: $LANGUAGE"
+            echo "  - Topics: $TOPICS"
+
+            # Category detection using multi-factor analysis
+            CATEGORY_SCORES=(
+            "coding:0"
+            "frontend:0"
+            "research:0"
+            "devops:0"
+            "general:0"
+            )
+
+            # Helper function to increment score
+            increment_score() {
+                local category=$1
+                local score=$2
+                for i in "${!CATEGORY_SCORES[@]}"; do
+                    local current=$(echo "${CATEGORY_SCORES[$i]}" | cut -d: -f1)
+                    local current_score=$(echo "${CATEGORY_SCORES[$i]}" | cut -d: -f2)
+                    if [[ "$current" == "$category" ]]; then
+                        CATEGORY_SCORES[$i]="${category}:$((current_score + score))"
+                    fi
+                done
+            }
+
+            # 1. Check language
+            case "$(echo "$LANGUAGE" | tr '[:upper:]' '[:lower:]')" in
+                "javascript"|"typescript"|"css"|"html"|"vue"|"react"|"angular"|"svelte")
+                    increment_score "frontend" 3
+                    increment_score "coding" 2
+                    ;;
+                "python"|"java"|"go"|"rust"|"c++"|"c#"|"ruby")
+                    increment_score "coding" 3
+                    ;;
+                "shell"|"dockerfile"|"hcl"|"makefile")
+                    increment_score "devops" 3
+                    ;;
+                *)
+                    increment_score "general" 1
+                    ;;
+            esac
+
+            # 2. Check topics
+            TOPICS_LOWER=$(echo "$TOPICS" | tr '[:upper:]' '[:lower:]')
+
+            if [[ "$TOPICS_LOWER" =~ (ui|ux|design|frontend|css|styling|component) ]]; then
+                increment_score "frontend" 3
+            fi
+
+            if [[ "$TOPICS_LOWER" =~ (devops|docker|kubernetes|ci/cd|infrastructure|deployment) ]]; then
+                increment_score "devops" 3
+            fi
+
+            if [[ "$TOPICS_LOWER" =~ (research|analysis|data|ml|machine-learning|ai) ]]; then
+                increment_score "research" 2
+            fi
+
+            if [[ "$TOPICS_LOWER" =~ (skill|coding|development|programming|tools) ]]; then
+                increment_score "coding" 2
+            fi
+
+            # 3. Check description keywords
+            DESCRIPTION_LOWER=$(echo "$DESCRIPTION" | tr '[:upper:]' '[:lower:]')
+
+            if [[ "$DESCRIPTION_LOWER" =~ (frontend|ui|component|styling|interface) ]]; then
+                increment_score "frontend" 2
+            fi
+
+            if [[ "$DESCRIPTION_LOWER" =~ (devops|infrastructure|deployment|docker|kubernetes) ]]; then
+                increment_score "devops" 2
+            fi
+
+            if [[ "$DESCRIPTION_LOWER" =~ (research|analysis|document|documentation) ]]; then
+                increment_score "research" 2
+            fi
+
+            if [[ "$DESCRIPTION_LOWER" =~ (coding|development|programming|tool|utility) ]]; then
+                increment_score "coding" 2
+            fi
+
+            # 4. Check repository name
+            NAME_LOWER=$(echo "$REPO_NAME" | tr '[:upper:]' '[:lower:]')
+
+            if [[ "$NAME_LOWER" =~ (coding|dev|development) ]]; then
+                increment_score "coding" 1
+            fi
+
+            if [[ "$NAME_LOWER" =~ (frontend|ui|component) ]]; then
+                increment_score "frontend" 1
+            fi
+
+            if [[ "$NAME_LOWER" =~ (devops|ops|infra) ]]; then
+                increment_score "devops" 1
+            fi
+
+            if [[ "$NAME_LOWER" =~ (research|doc|analysis) ]]; then
+                increment_score "research" 1
+            fi
+
+            # Find category with highest score
+            MAX_SCORE=0
+            DETECTED_CATEGORY="general"
+
+            for score_entry in "${CATEGORY_SCORES[@]}"; do
+                local category=$(echo "$score_entry" | cut -d: -f1)
+                local score=$(echo "$score_entry" | cut -d: -f2)
+                echo "  - $category: $score points"
+
+                if [[ "$score" -gt "$MAX_SCORE" ]]; then
+                    MAX_SCORE=$score
+                    DETECTED_CATEGORY="$category"
+                fi
+            done
+
+            echo "✅ Detected category: $DETECTED_CATEGORY (Score: $MAX_SCORE)"
+
+            # Clone repository temporarily to analyze README
+            TEMP_DIR=$(mktemp -d)
+            if git clone --depth 1 "$REPO_URL" "$TEMP_DIR" > /dev/null 2>&1; then
+                if [[ -f "$TEMP_DIR/README.md" ]]; then
+                    README_CONTENT=$(cat "$TEMP_DIR/README.md" | tr '[:upper:]' '[:lower:]')
+
+                    # README can override category if strong indicators found
+                    if [[ "$README_CONTENT" =~ (frontend|ui|component|react|vue|angular) ]]; then
+                        echo "📄 README suggests frontend category"
+                        DETECTED_CATEGORY="frontend"
+                    elif [[ "$README_CONTENT" =~ (devops|docker|kubernetes|infrastructure) ]]; then
+                        echo "📄 README suggests devops category"
+                        DETECTED_CATEGORY="devops"
+                    elif [[ "$README_CONTENT" =~ (research|analysis|documentation|report) ]]; then
+                        echo "📄 README suggests research category"
+                        DETECTED_CATEGORY="research"
+                    elif [[ "$README_CONTENT" =~ (coding|development|programming|skill) ]]; then
+                        echo "📄 README suggests coding category"
+                        DETECTED_CATEGORY="coding"
+                    fi
+                fi
+                rm -rf "$TEMP_DIR"
+            fi
+
             SKILL_PATH="skills/${DETECTED_CATEGORY}/${REPO_NAME}"
 
             echo "➕ Adding: $REPO_URL -> $SKILL_PATH"

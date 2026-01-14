@@ -14,12 +14,13 @@ This GitHub Action automatically discovers and adds trending skills repositories
 
 ### 1. Scheduled Runs
 
-Every Monday at 9:00 AM UTC, the workflow automatically:
+Every 8 hours, the workflow automatically:
 
 1. Searches GitHub for trending skills repositories (created in last 30 days, 10+ stars)
 2. Uses default query: `topic:ai-skill OR topic:skill`
-3. Adds new skills as git submodules
-4. Creates a pull request for review
+3. Analyzes each repository to determine the best category using multi-factor analysis
+4. Adds new skills as git submodules
+5. Creates a pull request for review
 
 ### 2. Manual Trigger
 
@@ -75,12 +76,42 @@ The workflow will:
 
 ## Skill Categories
 
-Skills are automatically categorized based on repository name:
-- **coding**: For software development skills
-- **frontend**: For UI/UX and web development skills
-- **research**: For analysis and documentation skills
+Skills are automatically categorized using intelligent multi-factor analysis:
+
+### Detection Factors
+
+The workflow analyzes each repository using:
+
+1. **GitHub API Metadata**
+   - Primary programming language
+   - Repository description
+   - GitHub topics/tags
+
+2. **Repository Content**
+   - README.md file content (cloned temporarily for analysis)
+
+3. **Repository Name**
+   - Keywords in repository name
+
+### Scoring System
+
+Each factor contributes points to category scores:
+
+- **Frontend**: JavaScript/TypeScript, UI/UX keywords, component-related topics
+- **Coding**: Python/Java/Go/Rust, development tools, programming keywords
+- **DevOps**: Shell/Dockerfile, infrastructure topics, deployment keywords
+- **Research**: Analysis/documentation topics, ML/AI keywords
+- **General**: Fallback category when no strong signals detected
+
+The category with the highest score is selected. If README.md contains strong category indicators, it can override the algorithmic decision.
+
+### Categories
+
+- **coding**: For software development and programming skills
+- **frontend**: For UI/UX and component development skills
+- **research**: For analysis, documentation, and research skills
 - **devops**: For CI/CD and infrastructure skills
-- **general**: For general-purpose skills (default)
+- **general**: For general-purpose skills (default when no clear category)
 
 ## Permissions
 
