@@ -1,3 +1,12 @@
 [submodule "skills/general/agent-skills"]
 	path = skills/general/agent-skills
 	url = https://github.com/vercel-labs/agent-skills
+[submodule "skills/general/clawdhub"]
+	path = skills/general/clawdhub
+	url = https://github.com/clawdbot/clawdhub
+[submodule "skills/general/ipsw-skill"]
+	path = skills/general/ipsw-skill
+	url = https://github.com/blacktop/ipsw-skill
+[submodule "skills/general/mcp-progressive-agentskill"]
+	path = skills/general/mcp-progressive-agentskill
+	url = https://github.com/cablate/mcp-progressive-agentskill
