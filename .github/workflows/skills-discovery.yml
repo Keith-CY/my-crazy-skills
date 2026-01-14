@@ -83,10 +83,26 @@ jobs:
           SEARCH_QUERY="${{ github.event.inputs.search_query || 'topic:ai-skill OR topic:skill' }}"
           DAYS_AGO=30
           MIN_STARS=10
-          SINCE_DATE=$(date -d "$DAYS_AGO days ago" +%Y-%m-%d)
+          
+          # Cross-platform date calculation (works on both macOS and Linux)
+          if command -v gdate >/dev/null 2>&1; then
+            SINCE_DATE=$(gdate -d "$DAYS_AGO days ago" +%Y-%m-%d)
+          elif date -d "$DAYS_AGO days ago" >/dev/null 2>&1; then
+            SINCE_DATE=$(date -d "$DAYS_AGO days ago" +%Y-%m-%d)
+          else
+            # macOS fallback using date -v
+            SINCE_DATE=$(date -v-${DAYS_AGO}d +%Y-%m-%d)
+          fi
+          
           QUERY="${SEARCH_QUERY} created:>${SINCE_DATE} stars:>${MIN_STARS} sort:stars"
 
           echo "🔍 Searching with query: $QUERY"
+
+          # Validate query is not malformed
+          if [[ -z "$SINCE_DATE" ]] || [[ "$QUERY" == *"created:>"*":"* ]]; then
+            echo "❌ Malformed query or missing date: $QUERY"
+            exit 1
+          fi
 
           RESPONSE=$(curl -s \
             -H "Authorization: token ${{ secrets.GITHUB_TOKEN }}" \
@@ -94,12 +110,20 @@ jobs:
             -H "X-GitHub-Api-Version: 2022-11-28" \
             "https://api.github.com/search/repositories?q=${QUERY}&per_page=20")
 
+          # Validate response is valid JSON
+          if ! echo "$RESPONSE" | jq empty >/dev/null 2>&1; then
+            echo "❌ Invalid JSON response from GitHub API"
+            echo "Response: $RESPONSE"
+            exit 1
+          fi
+
           API_ERROR=$(echo "$RESPONSE" | jq -r '.message // empty')
           if [[ -n "$API_ERROR" ]]; then
             echo "❌ API Error: $API_ERROR"
             exit 1
           fi
 
+          # Process response with error handling
           TRENDING_JSON=$(echo "$RESPONSE" | jq -r '
             .items[] |
             {
@@ -109,7 +133,10 @@ jobs:
               description: .description,
               language: .language,
               updated: .updated_at
-            }' | jq -s '.')
+            }' | jq -s '.') || {
+            echo "❌ Failed to process repository data"
+            exit 1
+          }
 
           TOTAL=$(echo "$TRENDING_JSON" | jq 'length')
           echo "✅ Found $TOTAL trending repositories"
