@@ -10,17 +10,6 @@ on:
         required: false
         default: 'topic:ai-skill OR topic:skill'
         type: string
-      category:
-        description: 'Category to add skills to'
-        required: false
-        default: 'general'
-        type: choice
-        options:
-          - coding
-          - frontend
-          - research
-          - devops
-          - general
 
   issues:
     types: [opened]
@@ -193,17 +182,8 @@ jobs:
 
           declare -a ADDED_SKILLS=()
 
-          # Determine category strategy based on trigger type
-          if [[ "${{ github.event_name }}" == "workflow_dispatch" ]]; then
-            # Manual trigger: use user-specified category
-            MANUAL_CATEGORY="${{ github.event.inputs.category || 'general' }}"
-            echo "🎯 Using manual category: $MANUAL_CATEGORY"
-            CATEGORY_STRATEGY="manual"
-          else
-            # Automatic trigger: use OpenCode AI detection
-            echo "🤖 Using OpenCode AI categorization"
-            CATEGORY_STRATEGY="ai-detected"
-          fi
+          # Use OpenCode AI for intelligent categorization
+          echo "🤖 Using OpenCode AI categorization for all skills"
 
           while IFS= read -r REPO_URL; do
             if grep -qF "$REPO_URL" /tmp/existing_submodules.txt 2>/dev/null; then
@@ -213,42 +193,35 @@ jobs:
 
             echo "🔍 Processing $REPO_URL..."
 
-            # Determine category based on strategy
-            if [[ "$CATEGORY_STRATEGY" == "manual" ]]; then
-              # Use manually specified category
-              DETECTED_CATEGORY="$MANUAL_CATEGORY"
-              echo "✅ Using manual category: $DETECTED_CATEGORY"
+            # Use OpenCode Zen for intelligent categorization (no API key required)
+            if opencode --model zen --repo "$REPO_URL" --prompt "Analyze this repository and categorize as: coding, frontend, research, devops, or general. Return just the category name." --format json 2>/dev/null; then
+              DETECTED_CATEGORY=$(opencode --model zen --repo "$REPO_URL" --prompt "Analyze this repository and categorize as: coding, frontend, research, devops, or general. Return just the category name." --format json 2>/dev/null | jq -r '.category // "general"' || echo "general")
+              echo "✅ OpenCode Zen categorized as: $DETECTED_CATEGORY"
             else
-              # Use OpenCode Zen for intelligent categorization (no API key required)
-              if opencode --model zen --repo "$REPO_URL" --prompt "Analyze this repository and categorize as: coding, frontend, research, devops, or general. Return just the category name." --format json 2>/dev/null; then
-                DETECTED_CATEGORY=$(opencode --model zen --repo "$REPO_URL" --prompt "Analyze this repository and categorize as: coding, frontend, research, devops, or general. Return just the category name." --format json 2>/dev/null | jq -r '.category // "general"' || echo "general")
-                echo "✅ OpenCode Zen categorized as: $DETECTED_CATEGORY"
+              echo "⚠️ OpenCode Zen CLI not available, using basic analysis"
+              REPO_NAME=$(basename "$REPO_URL")
+              NAME_LOWER=$(echo "$REPO_NAME" | tr '[:upper:]' '[:lower:]')
+              
+              if [[ "$NAME_LOWER" =~ (frontend|ui|component|react|vue|angular|css) ]]; then
+                DETECTED_CATEGORY="frontend"
+              elif [[ "$NAME_LOWER" =~ (devops|ops|docker|k8s|infra) ]]; then
+                DETECTED_CATEGORY="devops"
+              elif [[ "$NAME_LOWER" =~ (research|analysis|doc|ml|ai|data) ]]; then
+                DETECTED_CATEGORY="research"
+              elif [[ "$NAME_LOWER" =~ (coding|dev|program|tool) ]]; then
+                DETECTED_CATEGORY="coding"
               else
-                echo "⚠️ OpenCode Zen CLI not available, using basic analysis"
-                REPO_NAME=$(basename "$REPO_URL")
-                NAME_LOWER=$(echo "$REPO_NAME" | tr '[:upper:]' '[:lower:]')
-                
-                if [[ "$NAME_LOWER" =~ (frontend|ui|component|react|vue|angular|css) ]]; then
-                  DETECTED_CATEGORY="frontend"
-                elif [[ "$NAME_LOWER" =~ (devops|ops|docker|k8s|infra) ]]; then
-                  DETECTED_CATEGORY="devops"
-                elif [[ "$NAME_LOWER" =~ (research|analysis|doc|ml|ai|data) ]]; then
-                  DETECTED_CATEGORY="research"
-                elif [[ "$NAME_LOWER" =~ (coding|dev|program|tool) ]]; then
-                  DETECTED_CATEGORY="coding"
-                else
-                  DETECTED_CATEGORY="general"
-                fi
+                DETECTED_CATEGORY="general"
               fi
             fi
 
             REPO_NAME=$(basename "$REPO_URL")
             SKILL_PATH="skills/${DETECTED_CATEGORY}/${REPO_NAME}"
 
-            echo "➕ Adding: $REPO_URL -> $SKILL_PATH (${CATEGORY_STRATEGY})"
+          echo "➕ Adding: $REPO_URL -> $SKILL_PATH (ai-categorized)"
 
-            if git submodule add "$REPO_URL" "$SKILL_PATH" 2>&1; then
-              ADDED_SKILLS+=("$REPO_URL ($DETECTED_CATEGORY) [$CATEGORY_STRATEGY])")
+          if git submodule add "$REPO_URL" "$SKILL_PATH" 2>&1; then
+            ADDED_SKILLS+=("$REPO_URL ($DETECTED_CATEGORY) [ai-categorized])")
               echo "✅ Added: $REPO_URL"
             else
               echo "❌ Failed to add: $REPO_URL"
@@ -265,9 +238,9 @@ jobs:
             ADDED_JSON=$(printf '%s\n' "${ADDED_SKILLS[@]}" | jq -R -s -c 'split("\n") | map(select(length > 0))')
             echo "added_skills=$ADDED_JSON" >> $GITHUB_OUTPUT
 
-            git commit -m "chore: auto-add ${#ADDED_SKILLS[@]} skill(s) using OpenCode categorization
+            git commit -m "chore: auto-add ${#ADDED_SKILLS[@]} skill(s) using OpenCode AI
 
-            Added skills using OpenCode AI analysis:
+            Added skills using OpenCode AI intelligent categorization:
             $(printf '%s\n' "${ADDED_SKILLS[@]}")
 
             Auto-generated by GitHub Actions"
