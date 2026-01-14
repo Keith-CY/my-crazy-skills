@@ -1,0 +1,402 @@
+name: Auto-Add Trending Skills with OpenCode
+
+on:
+  schedule:
+    - cron: '0 */8 * * *'
+  workflow_dispatch:
+    inputs:
+      search_query:
+        description: 'Search query for skills repositories'
+        required: false
+        default: 'topic:ai-skill OR topic:skill'
+        type: string
+      category:
+        description: 'Category to add skills to'
+        required: false
+        default: 'general'
+        type: choice
+        options:
+          - coding
+          - frontend
+          - research
+          - devops
+          - general
+
+  issues:
+    types: [opened]
+
+permissions:
+  contents: write
+  pull-requests: write
+  issues: write
+
+jobs:
+  parse-issue:
+    if: github.event_name == 'issues'
+    runs-on: ubuntu-latest
+    outputs:
+      repo_urls: ${{ steps.extract.outputs.repo_urls }}
+      should_continue: ${{ steps.extract.outputs.should_continue }}
+    steps:
+      - name: Parse issue for repo URLs
+        id: extract
+        run: |
+          ISSUE_NUMBER="${{ github.event.issue.number }}"
+          ISSUE_BODY="${{ github.event.issue.body }}"
+          ISSUE_TITLE="${{ github.event.issue.title }}"
+
+          if [[ ! "$ISSUE_TITLE" =~ (\[ADD SKILL\]|Add Skill|add skill) ]]; then
+            echo "should_continue=false" >> $GITHUB_OUTPUT
+            echo "Issue title doesn't match pattern, skipping"
+            exit 0
+          fi
+
+          echo "$ISSUE_BODY" | grep -oE 'https://github\.com/[a-zA-Z0-9_.-]+/[a-zA-Z0-9_.-]+' > /tmp/repos.txt
+
+          REPO_COUNT=$(wc -l < /tmp/repos.txt)
+
+          if [[ "$REPO_COUNT" -eq 0 ]]; then
+            echo "should_continue=false" >> $GITHUB_OUTPUT
+            echo "No valid GitHub repository URLs found in issue"
+            gh issue comment "$ISSUE_NUMBER" \
+              --body "⚠️ No valid GitHub repository URLs found in this issue. Please format like:
+              ```
+              https://github.com/owner/repo
+              ```"
+            exit 0
+          fi
+
+          REPO_JSON=$(cat /tmp/repos.txt | jq -R -s -c 'split("\n") | map(select(length > 0))')
+          echo "repo_urls=$REPO_JSON" >> $GITHUB_OUTPUT
+          echo "should_continue=true" >> $GITHUB_OUTPUT
+
+          echo "✅ Found $REPO_COUNT repository URLs"
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: Add processing label
+        if: steps.extract.outputs.should_continue == 'true'
+        run: |
+          gh issue edit "${{ github.event.issue.number }}" \
+            --add-label "automation-processing"
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+
+  discover-trending:
+    if: github.event_name != 'issues'
+    runs-on: ubuntu-latest
+    outputs:
+      trending_repos: ${{ steps.search.outputs.trending_repos }}
+    steps:
+      - name: Search for trending skills repositories
+        id: search
+        run: |
+          SEARCH_QUERY="${{ github.event.inputs.search_query || 'topic:ai-skill OR topic:skill' }}"
+          DAYS_AGO=30
+          MIN_STARS=10
+          SINCE_DATE=$(date -d "$DAYS_AGO days ago" +%Y-%m-%d)
+          QUERY="${SEARCH_QUERY} created:>${SINCE_DATE} stars:>${MIN_STARS} sort:stars"
+
+          echo "🔍 Searching with query: $QUERY"
+
+          RESPONSE=$(curl -s \
+            -H "Authorization: token ${{ secrets.GITHUB_TOKEN }}" \
+            -H "Accept: application/vnd.github.v3+json" \
+            -H "X-GitHub-Api-Version: 2022-11-28" \
+            "https://api.github.com/search/repositories?q=${QUERY}&per_page=20")
+
+          API_ERROR=$(echo "$RESPONSE" | jq -r '.message // empty')
+          if [[ -n "$API_ERROR" ]]; then
+            echo "❌ API Error: $API_ERROR"
+            exit 1
+          fi
+
+          TRENDING_JSON=$(echo "$RESPONSE" | jq -r '
+            .items[] |
+            {
+              url: .html_url,
+              name: .full_name,
+              stars: .stargazers_count,
+              description: .description,
+              language: .language,
+              updated: .updated_at
+            }' | jq -s '.')
+
+          TOTAL=$(echo "$TRENDING_JSON" | jq 'length')
+          echo "✅ Found $TOTAL trending repositories"
+
+          echo "trending_repos=$TRENDING_JSON" >> $GITHUB_OUTPUT
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+
+  process-skills-with-opencode:
+    needs: [parse-issue, discover-trending]
+    if: |
+      (needs.parse-issue.result == 'success' && needs.parse-issue.outputs.should_continue == 'true') ||
+      needs.discover-trending.result == 'success'
+    runs-on: ubuntu-latest
+    outputs:
+      added_skills: ${{ steps.add.outputs.added_skills }}
+      has_changes: ${{ steps.add.outputs.has_changes }}
+      pr_branch: ${{ steps.add.outputs.pr_branch }}
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+        with:
+          token: ${{ secrets.GITHUB_TOKEN }}
+          fetch-depth: 0
+
+      - name: Configure Git
+        run: |
+          git config --global user.name "github-actions[bot]"
+          git config --global user.email "github-actions[bot]@users.noreply.github.com"
+
+      - name: Determine repository URLs to process
+        id: repos
+        run: |
+          if [[ "${{ github.event_name }}" == "issues" ]]; then
+            REPOS_JSON="${{ needs.parse-issue.outputs.repo_urls }}"
+          else
+            REPOS_JSON="${{ needs.discover-trending.outputs.trending_repos }}"
+          fi
+
+          if echo "$REPOS_JSON" | jq -e '.[0].url' > /dev/null 2>&1; then
+            REPOS_JSON=$(echo "$REPOS_JSON" | jq -r '.[].url')
+          fi
+
+          echo "$REPOS_JSON" | jq -r '.[]' > /tmp/repos_to_add.txt
+
+          TOTAL=$(wc -l < /tmp/repos_to_add.txt)
+          echo "Will process $TOTAL repositories"
+          echo "repos_to_add=$TOTAL" >> $GITHUB_OUTPUT
+
+      - name: Check existing submodules
+        run: |
+          if [[ -f .gitmodules ]]; then
+            grep '^\s*url' .gitmodules | sed 's/.*= //' | sort > /tmp/existing_submodules.txt
+            echo "Existing submodules:"
+            cat /tmp/existing_submodules.txt
+          else
+            touch /tmp/existing_submodules.txt
+            echo "No existing submodules"
+          fi
+
+      - name: Process each repository with OpenCode
+        id: add
+        run: |
+          ISSUE_NUMBER="${{ github.event.issue.number || 'auto' }}"
+          TIMESTAMP=$(date +%s)
+          BRANCH_NAME="auto-add-skills-${TIMESTAMP}"
+
+          git checkout -b "$BRANCH_NAME"
+          echo "pr_branch=$BRANCH_NAME" >> $GITHUB_OUTPUT
+
+          declare -a ADDED_SKILLS=()
+
+          while IFS= read -r REPO_URL; do
+            if grep -qF "$REPO_URL" /tmp/existing_submodules.txt 2>/dev/null; then
+              echo "⏭️  Skipping existing submodule: $REPO_URL"
+              continue
+            fi
+
+            echo "🔍 Processing $REPO_URL with OpenCode analysis..."
+
+            # Use OpenCode for intelligent categorization
+            DETECTED_CATEGORY="general"
+            if opencode --repo "$REPO_URL" --prompt "Analyze this repository and categorize as: coding, frontend, research, devops, or general. Return just the category name." --format json 2>/dev/null; then
+              DETECTED_CATEGORY=$(opencode --repo "$REPO_URL" --prompt "Analyze this repository and categorize as: coding, frontend, research, devops, or general. Return just the category name." --format json 2>/dev/null | jq -r '.category // "general"' || echo "general")
+              echo "✅ OpenCode categorized as: $DETECTED_CATEGORY"
+            else
+              echo "⚠️ OpenCode CLI not available, using basic analysis"
+              REPO_NAME=$(basename "$REPO_URL")
+              NAME_LOWER=$(echo "$REPO_NAME" | tr '[:upper:]' '[:lower:]')
+              
+              if [[ "$NAME_LOWER" =~ (frontend|ui|component|react|vue|angular|css) ]]; then
+                DETECTED_CATEGORY="frontend"
+              elif [[ "$NAME_LOWER" =~ (devops|ops|docker|k8s|infra) ]]; then
+                DETECTED_CATEGORY="devops"
+              elif [[ "$NAME_LOWER" =~ (research|analysis|doc|ml|ai|data) ]]; then
+                DETECTED_CATEGORY="research"
+              elif [[ "$NAME_LOWER" =~ (coding|dev|program|tool) ]]; then
+                DETECTED_CATEGORY="coding"
+              else
+                DETECTED_CATEGORY="general"
+              fi
+            fi
+
+            REPO_NAME=$(basename "$REPO_URL")
+            SKILL_PATH="skills/${DETECTED_CATEGORY}/${REPO_NAME}"
+
+            echo "➕ Adding: $REPO_URL -> $SKILL_PATH"
+
+            if git submodule add "$REPO_URL" "$SKILL_PATH" 2>&1; then
+              ADDED_SKILLS+=("$REPO_URL ($DETECTED_CATEGORY)")
+              echo "✅ Added: $REPO_URL"
+            else
+              echo "❌ Failed to add: $REPO_URL"
+            fi
+          done < /tmp/repos_to_add.txt
+
+          if [[ ${#ADDED_SKILLS[@]} -eq 0 ]]; then
+            echo "has_changes=false" >> $GITHUB_OUTPUT
+            echo "added_skills=[]" >> $GITHUB_OUTPUT
+            echo "ℹ️  No new skills to add"
+          else
+            echo "has_changes=true" >> $GITHUB_OUTPUT
+
+            ADDED_JSON=$(printf '%s\n' "${ADDED_SKILLS[@]}" | jq -R -s -c 'split("\n") | map(select(length > 0))')
+            echo "added_skills=$ADDED_JSON" >> $GITHUB_OUTPUT
+
+            git commit -m "chore: auto-add ${#ADDED_SKILLS[@]} skill(s) using OpenCode categorization
+
+            Added skills using OpenCode AI analysis:
+            $(printf '%s\n' "${ADDED_SKILLS[@]}")
+
+            Auto-generated by GitHub Actions"
+
+            git push origin "$BRANCH_NAME"
+            echo "✅ Committed and pushed changes"
+          fi
+
+      - name: Update issue with status
+        if: github.event_name == 'issues' && steps.add.outputs.has_changes == 'true'
+        run: |
+          ADDED_COUNT=$(echo "${{ steps.add.outputs.added_skills }}" | jq 'length')
+          BRANCH="${{ steps.add.outputs.pr_branch }}"
+
+          gh issue comment "${{ github.event.issue.number }}" \
+            --body "## 🚀 Skills Addition In Progress
+
+            ✅ Successfully added **$ADDED_COUNT** skill(s) as git submodules using OpenCode categorization
+
+            ### Branch: \`$BRANCH\`
+
+            A pull request will be created shortly for review.
+
+            ---
+            🤖 Processing by GitHub Actions"
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: Handle no changes
+        if: steps.add.outputs.has_changes == 'false'
+        run: |
+          if [[ "${{ github.event_name }}" == "issues" ]]; then
+            gh issue comment "${{ github.event.issue.number }}" \
+              --body "## ℹ️ No Changes Needed
+
+            All requested repositories are already added as submodules.
+
+            ---
+            🤖 Processed by GitHub Actions"
+
+            gh issue edit "${{ github.event.issue.number }}" \
+              --remove-label "automation-processing" \
+              --add-label "automation-complete"
+          fi
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+
+  create-pr:
+    needs: process-skills-with-opencode
+    if: needs.process-skills-with-opencode.outputs.has_changes == 'true'
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+        with:
+          token: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: Create Pull Request
+        uses: peter-evans/create-pull-request@v7
+        with:
+          token: ${{ secrets.GITHUB_TOKEN }}
+          branch: ${{ needs.process-skills-with-opencode.outputs.pr_branch }}
+          base: main
+          title: "🤖 Auto-Add Skills with OpenCode: $(echo '${{ needs.process-skills-with-opencode.outputs.added_skills }}' | jq -r 'length') new skill(s)"
+          body: |
+            ## 🤖 Automated Skills Addition with OpenCode
+
+            This pull request was automatically created to add new skills as git submodules using **OpenCode AI categorization**.
+
+            ### 📦 Added Skills (Intelligently Categorized)
+
+            $(echo '${{ needs.process-skills-with-opencode.outputs.added_skills }}' | jq -r '.[] | "- \(. | split(" (") | .[0]) (\(. | split(" (") | .[1] | split(")") | .[0]))"')
+
+            ### 🧠 OpenCode Integration
+
+            - **Intelligent Categorization**: Each skill was analyzed using OpenCode AI
+            - **Multi-factor Analysis**: README content, repository metadata, and purpose
+            - **Smart Fallback**: Basic pattern matching if OpenCode unavailable
+            - **Categories**: coding, frontend, research, devops, or general
+
+            ### ✅ Review Checklist
+
+            - [ ] Verify each skill repository is relevant and useful
+            - [ ] Check that OpenCode categorization is accurate
+            - [ ] Ensure no duplicates or conflicting skills
+            - [ ] Review skill quality and maintenance status
+
+            ### 📊 Trigger Information
+
+            - **Trigger Type**: ${{ github.event_name == 'issues' && 'Issue Request' || 'Scheduled Discovery' }}
+            - **Branch**: ${{ needs.process-skills-with-opencode.outputs.pr_branch }}
+            - **Created**: $(date -u +"%Y-%m-%d %H:%M:%S UTC")
+
+            ---
+            🤖 Generated by [Auto-Add Trending Skills with OpenCode](.github/workflows/auto-add-skills-opencode.yml) workflow
+          labels: automated,skills-addition,opencode-integration
+          draft: false
+          delete-branch: true
+
+      - name: Update issue with PR link
+        if: github.event_name == 'issues'
+        run: |
+          PR_NUMBER=$(gh pr list \
+            --head "${{ needs.process-skills-with-opencode.outputs.pr_branch }}" \
+            --base main \
+            --json number \
+            --jq '.[0].number')
+
+          if [[ -n "$PR_NUMBER" ]]; then
+            gh issue comment "${{ github.event.issue.number }}" \
+              --body "## ✅ Pull Request Created
+
+            📄 **PR #${PR_NUMBER}** has been created for review!
+
+            ### Next Steps
+            - Review pull request to verify OpenCode categorizations
+            - Merge if everything looks good, or request changes if needed
+
+            ---
+            🔗 [View Pull Request](https://github.com/${{ github.repository }}/pull/${PR_NUMBER})
+            🤖 Automated with OpenCode AI analysis"
+
+            gh issue edit "${{ github.event.issue.number }}" \
+              --remove-label "automation-processing" \
+              --add-label "automation-complete,pr-created"
+          fi
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+
+  handle-failure:
+    needs: [process-skills-with-opencode, create-pr]
+    if: failure()
+    runs-on: ubuntu-latest
+    steps:
+      - name: Notify failure
+        if: github.event_name == 'issues'
+        run: |
+          gh issue comment "${{ github.event.issue.number }}" \
+            --body "## ❌ Automation Failed
+
+            There was an error while processing this request with OpenCode. Please check the [workflow logs](https://github.com/${{ github.repository }}/actions/runs/${{ github.run_id }}) for details.
+
+            ---
+            🤖 GitHub Actions with OpenCode encountered an error"
+
+          gh issue edit "${{ github.event.issue.number }}" \
+            --remove-label "automation-processing" \
+            --add-label "automation-failed"
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
