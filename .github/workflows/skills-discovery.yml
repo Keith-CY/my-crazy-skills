@@ -123,8 +123,19 @@ jobs:
             exit 1
           fi
 
-          # Process response with error handling
-          TRENDING_JSON=$(echo "$RESPONSE" | jq -r '
+          # Debug API response
+          TOTAL_COUNT=$(echo "$RESPONSE" | jq -r '.total_count // 0')
+          ITEMS_COUNT=$(echo "$RESPONSE" | jq -r '.items | length')
+          echo "📊 API Results: $TOTAL_COUNT total, $ITEMS_COUNT items returned"
+
+          if [[ "$ITEMS_COUNT" -eq 0 ]]; then
+            echo "⚠️ No repositories found matching criteria"
+            echo "trending_repos=[]" >> $GITHUB_OUTPUT
+            exit 0
+          fi
+
+          # Process response with error handling for empty items
+          if ! echo "$RESPONSE" | jq -r '
             .items[] |
             {
               url: .html_url,
@@ -133,13 +144,21 @@ jobs:
               description: .description,
               language: .language,
               updated: .updated_at
-            }' | jq -s '.') || {
-            echo "❌ Failed to process repository data"
+            }' | jq -s '.' > /tmp/trending.json; then
+            echo "❌ Failed to process repository data with jq"
             exit 1
-          }
+          fi
+
+          TRENDING_JSON=$(cat /tmp/trending.json)
 
           TOTAL=$(echo "$TRENDING_JSON" | jq 'length')
           echo "✅ Found $TOTAL trending repositories"
+
+          # Ensure we have a valid JSON array even if empty
+          if [[ -z "$TRENDING_JSON" ]]; then
+            TRENDING_JSON="[]"
+            echo "📝 Empty results - set to empty array"
+          fi
 
           echo "trending_repos=$TRENDING_JSON" >> $GITHUB_OUTPUT
         env:
