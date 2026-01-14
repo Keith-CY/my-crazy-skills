@@ -13,3 +13,30 @@
 [submodule "skills/general/marketplace"]
 	path = skills/general/marketplace
 	url = https://github.com/aiskillstore/marketplace
+[submodule "skills/general/skills"]
+	path = skills/general/skills
+	url = https://github.com/anthropics/skills
+[submodule "skills/general/superpowers"]
+	path = skills/general/superpowers
+	url = https://github.com/obra/superpowers
+[submodule "skills/general/planning-with-files"]
+	path = skills/general/planning-with-files
+	url = https://github.com/OthmanAdi/planning-with-files
+[submodule "skills/general/x-article-publisher-skill"]
+	path = skills/general/x-article-publisher-skill
+	url = https://github.com/wshuyi/x-article-publisher-skill
+[submodule "skills/general/notebooklm-skill"]
+	path = skills/general/notebooklm-skill
+	url = https://github.com/PleasePrompto/notebooklm-skill
+[submodule "skills/frontend/ui-ux-pro-max-skill"]
+	path = skills/frontend/ui-ux-pro-max-skill
+	url = https://github.com/nextlevelbuilder/ui-ux-pro-max-skill
+[submodule "skills/general/33-js-concepts"]
+	path = skills/general/33-js-concepts
+	url = https://github.com/leonardomso/33-js-concepts
+[submodule "skills/general/claude-code-templates"]
+	path = skills/general/claude-code-templates
+	url = https://github.com/davila7/claude-code-templates
+[submodule "skills/general/skill-prompt-generator"]
+	path = skills/general/skill-prompt-generator
+	url = https://github.com/huangserva/skill-prompt-generator
