@@ -1,5 +1,7 @@
 # my-crazy-skills
 
+[![OpenCode Security Scan](https://github.com/Keith-CY/my-crazy-skills/actions/workflows/opencode-security-scan.yml/badge.svg?branch=main)](https://github.com/Keith-CY/my-crazy-skills/actions/workflows/opencode-security-scan.yml)
+
 ## Quick install
 
 **Run this once to link skills globally for Codex:**

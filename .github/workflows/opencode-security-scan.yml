@@ -1,0 +1,100 @@
+name: OpenCode Security Scan
+
+on:
+  push:
+    branches: [main]
+    paths:
+      - "skills/**"
+      - ".gitmodules"
+  pull_request:
+    paths:
+      - "skills/**"
+      - ".gitmodules"
+  workflow_dispatch: {}
+
+permissions:
+  contents: read
+
+jobs:
+  opencode-security-scan:
+    runs-on: ubuntu-latest
+    timeout-minutes: 45
+    steps:
+      - name: Checkout repository (with submodules)
+        uses: actions/checkout@v4
+        with:
+          submodules: recursive
+          fetch-depth: 0
+
+      - name: Install OpenCode CLI
+        run: |
+          set -euo pipefail
+          curl -fsSL https://opencode.ai/install | bash
+          echo "$HOME/.local/bin" >> "$GITHUB_PATH"
+          echo "$HOME/.opencode/bin" >> "$GITHUB_PATH"
+          command -v opencode
+
+      - name: Run OpenCode Zen security scan
+        run: |
+          set -euo pipefail
+          mkdir -p reports
+
+          targets=("$GITHUB_WORKSPACE")
+          mapfile -t submodules < <(git submodule foreach --recursive 'echo $sm_path' 2>/dev/null || true)
+          for sm in "${submodules[@]}"; do
+            targets+=("$GITHUB_WORKSPACE/$sm")
+          done
+
+          has_issues=0
+          had_errors=0
+
+          for target in "${targets[@]}"; do
+            name=$(echo "$target" | sed "s#^$GITHUB_WORKSPACE/?##; s#[/ ]#-#g; s#^-##")
+            if [[ -z "$name" ]]; then
+              name="root"
+            fi
+            out="reports/${name}.json"
+
+            prompt="Scan this repository for malicious code patterns and risky dependencies. Return strict JSON only with this schema: {\"summary\":{\"target\":\"${name}\",\"issues_found\":<int>},\"findings\":[{\"severity\":\"low|medium|high|critical\",\"location\":\"...\",\"summary\":\"...\",\"evidence\":\"...\"}]}"
+
+            if ! opencode --model zen --repo "$target" --prompt "$prompt" --format json > "$out"; then
+              echo "OpenCode scan failed for $target"
+              had_errors=1
+              continue
+            fi
+
+            if ! jq -e '.summary and (.findings | type=="array")' "$out" >/dev/null; then
+              echo "Invalid JSON schema for $target"
+              had_errors=1
+              continue
+            fi
+
+            issues=$(jq -r '.summary.issues_found // (.findings | length)' "$out")
+            if [[ "$issues" != "0" ]]; then
+              has_issues=1
+            fi
+          done
+
+          shopt -s nullglob
+          report_files=(reports/*.json)
+          if [[ ${#report_files[@]} -gt 0 ]]; then
+            jq -s '{generated_at: (now | todate), results: .}' "${report_files[@]}" \
+              > reports/opencode-security.json
+          fi
+
+          if [[ "$had_errors" -ne 0 ]]; then
+            echo "One or more scans failed"
+            exit 1
+          fi
+
+          if [[ "$has_issues" -ne 0 ]]; then
+            echo "Security findings detected"
+            exit 1
+          fi
+
+      - name: Upload OpenCode security reports
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: opencode-security-reports
+          path: reports
