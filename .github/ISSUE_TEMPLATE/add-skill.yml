@@ -1,0 +1,50 @@
+name: Add skill
+description: Request adding one or more skills to this repository
+title: "[ADD SKILL] <skill name>"
+labels:
+  - skills-addition
+body:
+  - type: markdown
+    attributes:
+      value: |
+        Use this form to add skills. The automation accepts requests from users with **write** access (or higher).
+
+        Accepted inputs:
+        - GitHub repo URL: `https://github.com/owner/repo`
+        - Repo slug: `owner/repo`
+        - Skill markdown file URL: `https://github.com/owner/repo/blob/main/path/skill.md`
+
+  - type: textarea
+    id: repos
+    attributes:
+      label: Skill repositories or files
+      description: One per line. Include repo URLs, owner/repo slugs, or skill markdown file URLs.
+      placeholder: |
+        https://github.com/owner/repo
+        owner/repo
+        https://github.com/owner/repo/blob/main/skills/my-skill.md
+    validations:
+      required: true
+
+  - type: dropdown
+    id: category
+    attributes:
+      label: Category override (optional)
+      description: Force a single category for all entries, or leave as Auto.
+      options:
+        - Auto
+        - learning
+        - frontend
+        - creative
+        - research
+        - tooling
+        - workflows
+        - platforms
+        - publishing
+
+  - type: textarea
+    id: notes
+    attributes:
+      label: Notes
+      description: Anything else the automation should know.
+      placeholder: Context, priority, or category rationale.
