@@ -13,6 +13,10 @@ on:
   issues:
     types: [opened]
 
+concurrency:
+  group: skills-discovery-${{ github.event_name }}
+  cancel-in-progress: false
+
 permissions:
   contents: write
   pull-requests: write
@@ -47,23 +51,52 @@ jobs:
       - name: Parse issue for repo URLs
         id: extract
         run: |
+          set -euo pipefail
           ISSUE_NUMBER="${{ github.event.issue.number }}"
           ISSUE_BODY=$(cat << 'EOF'
           ${{ github.event.issue.body }}
           EOF
           )
           ISSUE_TITLE="${{ github.event.issue.title }}"
+          ISSUE_TEXT="${ISSUE_TITLE}\n${ISSUE_BODY}"
+          CATEGORY_OVERRIDE=""
 
           echo "Debug - Issue Title: $ISSUE_TITLE"
           echo "Debug - Issue Body: $ISSUE_BODY"
 
-          if [[ ! "$ISSUE_TITLE" =~ (\[ADD\ SKILL\]|Add\ Skill|add\ skill) ]]; then
-            echo "should_continue=false" >> $GITHUB_OUTPUT
-            echo "Issue title doesn't match pattern, skipping"
-            exit 0
+          TITLE_MATCH="false"
+          if [[ "$ISSUE_TITLE" =~ (\[ADD\ SKILL\]|Add\ Skill|add\ skill|Skill\ Request|skill\ request) ]]; then
+            TITLE_MATCH="true"
           fi
 
-          echo "$ISSUE_BODY" | grep -oE 'https://github\.com/[a-zA-Z0-9_.-]+/[a-zA-Z0-9_.-]+' > /tmp/repos.txt || true
+          # Optional category override (applies to all repos in this issue)
+          CATEGORY_OVERRIDE=$(echo "$ISSUE_TEXT" | grep -iE 'category:' | head -n1 | sed -E 's/.*category:\s*//I' | tr '[:upper:]' '[:lower:]' | tr -d '[:space:]' || true)
+          case "$CATEGORY_OVERRIDE" in
+            learning|frontend|creative|research|tooling|workflows|platforms|publishing)
+              echo "Detected category override: $CATEGORY_OVERRIDE"
+              ;;
+            "")
+              ;;
+            *)
+              echo "Unknown category override: $CATEGORY_OVERRIDE (ignored)"
+              CATEGORY_OVERRIDE=""
+              ;;
+          esac
+
+          # Extract GitHub repo URLs
+          echo -e "$ISSUE_TEXT" | grep -oE 'https://github\.com/[a-zA-Z0-9_.-]+/[a-zA-Z0-9_.-]+' > /tmp/repos_urls.txt || true
+
+          # Extract owner/repo shorthand and normalize into URLs
+          echo -e "$ISSUE_TEXT" | grep -oE '\b[a-zA-Z0-9_.-]+/[a-zA-Z0-9_.-]+\b' | grep -vE '^https?://' > /tmp/repos_slugs.txt || true
+          if [[ -s /tmp/repos_slugs.txt ]]; then
+            awk '{print "https://github.com/" $0}' /tmp/repos_slugs.txt >> /tmp/repos_urls.txt
+          fi
+
+          if [[ -s /tmp/repos_urls.txt ]]; then
+            sed -E 's#\\.git$##; s#/$##' /tmp/repos_urls.txt | sort -u > /tmp/repos.txt
+          else
+            : > /tmp/repos.txt
+          fi
 
           REPO_COUNT=$(wc -l < /tmp/repos.txt | tr -d ' ')
 
@@ -74,6 +107,12 @@ jobs:
             cat /tmp/repos.txt
           fi
 
+          if [[ "$TITLE_MATCH" != "true" && "$REPO_COUNT" -eq 0 ]]; then
+            echo "should_continue=false" >> $GITHUB_OUTPUT
+            echo "Issue title doesn't match pattern and no repo URLs found, skipping"
+            exit 0
+          fi
+
           if [[ "$REPO_COUNT" -eq 0 ]]; then
             echo "should_continue=false" >> $GITHUB_OUTPUT
             echo "No valid GitHub repository URLs found in issue"
@@ -81,6 +120,7 @@ jobs:
               --body "⚠️ No valid GitHub repository URLs found in this issue. Please format like:
               \`\`\`
               https://github.com/owner/repo
+              owner/repo
               \`\`\`
               
               Your issue body was:
@@ -92,6 +132,7 @@ jobs:
 
           REPO_JSON=$(cat /tmp/repos.txt | jq -R -s -c 'split("\n") | map(select(length > 0))')
           echo "repo_urls=$REPO_JSON" >> $GITHUB_OUTPUT
+          echo "category_override=$CATEGORY_OVERRIDE" >> $GITHUB_OUTPUT
           echo "should_continue=true" >> $GITHUB_OUTPUT
           echo "✅ Found $REPO_COUNT repository URLs"
         env:
@@ -237,6 +278,7 @@ jobs:
       - name: Determine repository URLs to process
         id: repos
         run: |
+          set -euo pipefail
           if [[ "${{ github.event_name }}" == "issues" ]]; then
             REPOS_JSON='${{ needs.parse-issue.outputs.repo_urls }}'
             echo "Debug - Issue repos JSON: $REPOS_JSON"
@@ -288,9 +330,11 @@ jobs:
       - name: Process each repository with OpenCode
         id: add
         run: |
+          set -euo pipefail
           ISSUE_NUMBER="${{ github.event.issue.number || 'auto' }}"
           TIMESTAMP=$(date +%s)
           BRANCH_NAME="auto-add-skills-${TIMESTAMP}"
+          CATEGORY_OVERRIDE="${{ needs.parse-issue.outputs.category_override }}"
 
           if [[ "${{ steps.repos.outputs.repos_to_add }}" == "0" ]]; then
             echo "No repositories to process"
@@ -310,6 +354,7 @@ jobs:
 
           # Use OpenCode AI for intelligent categorization
           echo "🤖 Using OpenCode AI categorization for all skills"
+          echo "Allowed categories: learning, frontend, creative, research, tooling, workflows, platforms, publishing"
 
           while IFS= read -r REPO_URL; do
             if grep -qF "$REPO_URL" /tmp/existing_submodules.txt 2>/dev/null; then
@@ -320,27 +365,48 @@ jobs:
 
             echo "🔍 Processing $REPO_URL..."
 
-            # Use OpenCode Zen for intelligent categorization (no API key required)
-            OPENCODE_OUTPUT=$(opencode --model zen --repo "$REPO_URL" --prompt "Analyze this repository and categorize as: coding, frontend, research, devops, or general. Return just the category name." --format json 2>/dev/null || true)
-            
-            if [[ -n "$OPENCODE_OUTPUT" ]] && echo "$OPENCODE_OUTPUT" | jq empty >/dev/null 2>&1; then
-              DETECTED_CATEGORY=$(echo "$OPENCODE_OUTPUT" | jq -r '.category // "general"' || echo "general")
-              echo "✅ OpenCode Zen categorized as: $DETECTED_CATEGORY"
+            if [[ -n "$CATEGORY_OVERRIDE" ]]; then
+              DETECTED_CATEGORY="$CATEGORY_OVERRIDE"
+              echo "✅ Using category override: $DETECTED_CATEGORY"
             else
-              echo "⚠️ OpenCode Zen CLI not available, using basic analysis"
-              REPO_NAME=$(basename "$REPO_URL")
-              NAME_LOWER=$(echo "$REPO_NAME" | tr '[:upper:]' '[:lower:]')
+              # Fetch repo metadata for smarter fallback categorization
+              REPO_PATH=$(echo "$REPO_URL" | sed -E 's#https://github\.com/##')
+              META_JSON=$(gh api "repos/${REPO_PATH}" --jq '{name:.name,description:.description,topics:.topics}' 2>/dev/null || true)
+              META_TEXT=""
+              if [[ -n "$META_JSON" ]]; then
+                META_TEXT=$(echo "$META_JSON" | jq -r '.name + " " + (.description // "") + " " + ((.topics // []) | join(" "))' || echo "")
+              fi
+
+              # Use OpenCode Zen for intelligent categorization (no API key required)
+              OPENCODE_OUTPUT=$(opencode --model zen --repo "$REPO_URL" --prompt "Analyze this repository and categorize as one of: learning, frontend, creative, research, tooling, workflows, platforms, publishing. Return JSON: {\"category\":\"...\",\"confidence\":\"low|medium|high\",\"rationale\":\"...\"}." --format json 2>/dev/null || true)
               
-              if [[ "$NAME_LOWER" =~ (frontend|ui|component|react|vue|angular|css) ]]; then
-                DETECTED_CATEGORY="frontend"
-              elif [[ "$NAME_LOWER" =~ (devops|ops|docker|k8s|infra) ]]; then
-                DETECTED_CATEGORY="devops"
-              elif [[ "$NAME_LOWER" =~ (research|analysis|doc|ml|ai|data) ]]; then
-                DETECTED_CATEGORY="research"
-              elif [[ "$NAME_LOWER" =~ (coding|dev|program|tool) ]]; then
-                DETECTED_CATEGORY="coding"
+              if [[ -n "$OPENCODE_OUTPUT" ]] && echo "$OPENCODE_OUTPUT" | jq empty >/dev/null 2>&1; then
+                DETECTED_CATEGORY=$(echo "$OPENCODE_OUTPUT" | jq -r '.category // "tooling"' || echo "tooling")
+                echo "✅ OpenCode Zen categorized as: $DETECTED_CATEGORY"
               else
-                DETECTED_CATEGORY="general"
+                echo "⚠️ OpenCode Zen CLI not available, using smart metadata analysis"
+                REPO_NAME=$(basename "$REPO_URL")
+                NAME_LOWER=$(echo "$REPO_NAME" | tr '[:upper:]' '[:lower:]')
+                META_LOWER=$(echo "$META_TEXT" | tr '[:upper:]' '[:lower:]')
+                HAYSTACK="${NAME_LOWER} ${META_LOWER}"
+
+                if [[ "$HAYSTACK" =~ (course|concepts|tutorial|guide|learn|handbook|cheatsheet|curriculum) ]]; then
+                  DETECTED_CATEGORY="learning"
+                elif [[ "$HAYSTACK" =~ (frontend|ui|ux|component|react|vue|angular|css|design\ system) ]]; then
+                  DETECTED_CATEGORY="frontend"
+                elif [[ "$HAYSTACK" =~ (prompt|image|art|creative|design\ generator|aesthetic) ]]; then
+                  DETECTED_CATEGORY="creative"
+                elif [[ "$HAYSTACK" =~ (research|analysis|reverse\ engineering|notebook|security|forensics|ml|ai\ research) ]]; then
+                  DETECTED_CATEGORY="research"
+                elif [[ "$HAYSTACK" =~ (workflow|planning|tdd|process|methodology|playbook) ]]; then
+                  DETECTED_CATEGORY="workflows"
+                elif [[ "$HAYSTACK" =~ (marketplace|registry|catalog|directory|hub|platform) ]]; then
+                  DETECTED_CATEGORY="platforms"
+                elif [[ "$HAYSTACK" =~ (publish|article|blog|newsletter|social|posting) ]]; then
+                  DETECTED_CATEGORY="publishing"
+                else
+                  DETECTED_CATEGORY="tooling"
+                fi
               fi
             fi
 
@@ -381,6 +447,8 @@ jobs:
             git push origin "$BRANCH_NAME"
             echo "✅ Committed and pushed changes"
           fi
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
 
       - name: Update issue with status
         if: github.event_name == 'issues' && steps.add.outputs.has_changes == 'true'
@@ -466,7 +534,7 @@ jobs:
           - **Intelligent Categorization**: Each skill was analyzed using OpenCode AI
           - **Multi-factor Analysis**: README content, repository metadata, and purpose
           - **Smart Fallback**: Basic pattern matching if OpenCode unavailable
-          - **Categories**: coding, frontend, research, devops, or general
+          - **Categories**: learning, frontend, creative, research, tooling, workflows, platforms, publishing
 
           ### ✅ Review Checklist
 
