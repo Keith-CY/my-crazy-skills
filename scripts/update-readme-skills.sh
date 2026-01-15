@@ -10,6 +10,7 @@ END_MARKER="<!-- SKILLS-LIST:END -->"
 export README SKILLS_DIR START_MARKER END_MARKER
 
 python3 - <<'PY'
+import configparser
 import os
 from pathlib import Path
 
@@ -17,6 +18,17 @@ readme_path = Path(os.environ["README"])
 skills_dir = Path(os.environ["SKILLS_DIR"])
 start = os.environ["START_MARKER"]
 end = os.environ["END_MARKER"]
+gitmodules_path = skills_dir.parent / ".gitmodules"
+
+submodule_urls = {}
+if gitmodules_path.exists():
+    config = configparser.ConfigParser()
+    config.read(gitmodules_path)
+    for section in config.sections():
+        path = config.get(section, "path", fallback=None)
+        url = config.get(section, "url", fallback=None)
+        if path and url:
+            submodule_urls[path] = url
 
 categories = {}
 if skills_dir.is_dir():
@@ -31,7 +43,8 @@ for category, items in categories.items():
     lines.append(f"- [`{category_path}`]({category_path})")
     for item in items:
         item_path = f"skills/{category}/{item}"
-        lines.append(f"  - [`{item}`]({item_path})")
+        link = submodule_urls.get(item_path, item_path)
+        lines.append(f"  - [`{item}`]({link})")
 
 skills_block = "\n".join(lines) if lines else "- _No skills found._"
 
