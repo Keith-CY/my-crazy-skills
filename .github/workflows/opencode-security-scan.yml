@@ -15,6 +15,7 @@ on:
 permissions:
   contents: read
   pull-requests: write
+  actions: read
 
 jobs:
   opencode-security-scan:
@@ -32,8 +33,9 @@ jobs:
         shell: bash
         run: |
           set -euo pipefail
-          VERSION=$(curl -sf https://api.github.com/repos/anomalyco/opencode/releases/latest | grep -o '"tag_name": *"[^"]*"' | cut -d'"' -f4)
-          echo "version=${VERSION:-latest}" >> "$GITHUB_OUTPUT"
+          json="$(curl -fsSL https://api.github.com/repos/anomalyco/opencode/releases/latest || true)"
+          VERSION="$(jq -r '.tag_name // "latest"' <<<"$json" 2>/dev/null || echo latest)"
+          echo "version=$VERSION" >> "$GITHUB_OUTPUT"
 
       - name: Cache OpenCode CLI
         uses: actions/cache@v4
@@ -118,14 +120,12 @@ for line in raw_path.read_text().splitlines():
         if text:
             texts.append(text)
 
-content = texts[-1] if texts else ""
-
 def extract_json(text):
     try:
         return json.loads(text)
     except json.JSONDecodeError:
         pass
-    match = re.search(r"(\\{.*\\}|\\[.*\\])", text, re.DOTALL)
+    match = re.search(r"(\\{.*?\\}|\\[.*?\\])", text, re.DOTALL)
     if match:
         try:
             return json.loads(match.group(1))
@@ -133,19 +133,24 @@ def extract_json(text):
             return None
     return None
 
-data = extract_json(content)
+data = None
+for text in texts:
+    data = extract_json(text)
+    if data is not None:
+        break
+
 if data is None:
     raise SystemExit("No JSON object found in OpenCode output")
 out_path.write_text(json.dumps(data))
 PY
-            if ! jq -e '.summary and (.findings | type=="array")' "$out" >/dev/null; then
+            if ! jq -e '.summary.target and (.findings | type=="array") and all(.findings[]; .severity and (.severity|IN("low","medium","high","critical")) and .location and .summary)' "$out" >/dev/null; then
               echo "::error::Invalid JSON schema for $target"
               had_errors=1
               continue
             fi
 
-            issues=$(jq -r '.summary.issues_found // (.findings | length)' "$out")
-            if [[ "$issues" != "0" ]]; then
+            issues=$(jq -r '(.summary.issues_found // (.findings | length)) | tonumber? // 0' "$out")
+            if [[ "$issues" -ne 0 ]]; then
               has_issues=1
               critical=$(jq '[.findings[] | select(.severity=="critical")] | length' "$out")
               high=$(jq '[.findings[] | select(.severity=="high")] | length' "$out")
