@@ -547,6 +547,9 @@ jobs:
           else
             echo "has_changes=true" >> $GITHUB_OUTPUT
 
+            bash scripts/update-readme-skills.sh
+            git add README.md
+
             ADDED_JSON=$(printf '%s\n' "${ADDED_SKILLS[@]}" | jq -R -s -c 'split("\n") | map(select(length > 0))')
             echo "added_skills=$ADDED_JSON" >> $GITHUB_OUTPUT
 

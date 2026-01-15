@@ -4,30 +4,34 @@ Collection of AI skills tracked as git submodules. Categories live under `skills
 
 ## Layout
 
-- `skills/learning/`
-  - `33-js-concepts` - JavaScript concepts guide with curated resources
-- `skills/frontend/`
-  - `ui-ux-pro-max-skill` - UI/UX engineering skill pack
+Auto-generated from the `skills/` directory.
+
+<!-- SKILLS-LIST:START -->
 - `skills/creative/`
-  - `skill-prompt-generator` - multi-domain AI image prompt generator
-- `skills/research/`
-  - `ipsw-skill` - Apple firmware RE tooling
-  - `notebooklm-skill` - NotebookLM source-grounded Q&A
-- `skills/tooling/`
-  - `agent-skills` - agent skill collection
-  - `claude-code-templates` - Claude Code templates/tools
-  - `mcp-progressive-agentskill` - progressive MCP access
-  - `skills` - Anthropic skill examples/spec
-- `skills/workflows/`
-  - `planning-with-files` - file-based planning workflow
-  - `superpowers` - structured coding-agent workflow
-- `skills/platforms/`
-  - `clawdhub` - skill registry
-  - `marketplace` - AI Skillstore marketplace
-- `skills/publishing/`
-  - `x-article-publisher-skill` - publish Markdown to X Articles
+  - `skill-prompt-generator`
+- `skills/frontend/`
+  - `ui-ux-pro-max-skill`
 - `skills/general/`
-  - `claude-skills` - Claude skills collection
+  - `claude-skills`
+- `skills/learning/`
+  - `33-js-concepts`
+- `skills/platforms/`
+  - `clawdhub`
+  - `marketplace`
+- `skills/publishing/`
+  - `x-article-publisher-skill`
+- `skills/research/`
+  - `ipsw-skill`
+  - `notebooklm-skill`
+- `skills/tooling/`
+  - `agent-skills`
+  - `claude-code-templates`
+  - `mcp-progressive-agentskill`
+  - `skills`
+- `skills/workflows/`
+  - `planning-with-files`
+  - `superpowers`
+<!-- SKILLS-LIST:END -->
 
 ## Getting started
 
