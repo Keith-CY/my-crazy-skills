@@ -10,11 +10,26 @@ curl -fsSL https://raw.githubusercontent.com/Keith-CY/my-crazy-skills/main/INSTA
 
 Notes:
 - Target other agents:
-  - Claude: `curl -fsSL https://raw.githubusercontent.com/Keith-CY/my-crazy-skills/main/INSTALL.sh | sh -s -- --claude`
-  - Gemini: `curl -fsSL https://raw.githubusercontent.com/Keith-CY/my-crazy-skills/main/INSTALL.sh | sh -s -- --gemini`
-  - OpenCode: `curl -fsSL https://raw.githubusercontent.com/Keith-CY/my-crazy-skills/main/INSTALL.sh | sh -s -- --opencode`
-- Per-project link (Codex example): `curl -fsSL https://raw.githubusercontent.com/Keith-CY/my-crazy-skills/main/INSTALL.sh | sh -s -- --project /path/to/project`
-- Per-project + target (Claude example): `curl -fsSL https://raw.githubusercontent.com/Keith-CY/my-crazy-skills/main/INSTALL.sh | sh -s -- --claude --project /path/to/project`
+  - Claude:
+    ```bash
+    curl -fsSL https://raw.githubusercontent.com/Keith-CY/my-crazy-skills/main/INSTALL.sh | sh -s -- --claude
+    ```
+  - Gemini:
+    ```bash
+    curl -fsSL https://raw.githubusercontent.com/Keith-CY/my-crazy-skills/main/INSTALL.sh | sh -s -- --gemini
+    ```
+  - OpenCode:
+    ```bash
+    curl -fsSL https://raw.githubusercontent.com/Keith-CY/my-crazy-skills/main/INSTALL.sh | sh -s -- --opencode
+    ```
+- Per-project link (Codex example):
+  ```bash
+  curl -fsSL https://raw.githubusercontent.com/Keith-CY/my-crazy-skills/main/INSTALL.sh | sh -s -- --project /path/to/project
+  ```
+- Per-project + target (Claude example):
+  ```bash
+  curl -fsSL https://raw.githubusercontent.com/Keith-CY/my-crazy-skills/main/INSTALL.sh | sh -s -- --claude --project /path/to/project
+  ```
 
 Collection of AI skills tracked as git submodules. Categories live under `skills/` and reflect the current organization.
 
