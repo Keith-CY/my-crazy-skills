@@ -9,7 +9,11 @@ curl -fsSL https://raw.githubusercontent.com/Keith-CY/my-crazy-skills/main/INSTA
 ```
 
 Notes:
-- If you want a per-project link instead of global, download `INSTALL.sh` and run `./INSTALL.sh --project /path/to/project`.
+- Target other agents:
+  - Claude: `curl -fsSL https://raw.githubusercontent.com/Keith-CY/my-crazy-skills/main/INSTALL.sh | sh -s -- --claude`
+  - Gemini: `curl -fsSL https://raw.githubusercontent.com/Keith-CY/my-crazy-skills/main/INSTALL.sh | sh -s -- --gemini`
+  - OpenCode: `curl -fsSL https://raw.githubusercontent.com/Keith-CY/my-crazy-skills/main/INSTALL.sh | sh -s -- --opencode`
+- For a per-project link, download `INSTALL.sh` and run `./INSTALL.sh --project /path/to/project`.
 
 Collection of AI skills tracked as git submodules. Categories live under `skills/` and reflect the current organization.
 
@@ -45,33 +49,3 @@ Auto-generated from the `skills/` directory.
   - [`planning-with-files`](skills/workflows/planning-with-files)
   - [`superpowers`](skills/workflows/superpowers)
 <!-- SKILLS-LIST:END -->
-
-## Getting started
-
-Clone with submodules:
-
-```bash
-git clone --recurse-submodules <repo_url>
-```
-
-If you already cloned:
-
-```bash
-git submodule update --init --recursive
-```
-
-## Add a skill
-
-```bash
-git submodule add <repository_url> skills/<category>/<skill_name>
-```
-
-Example:
-
-```bash
-git submodule add https://github.com/example/playwright-skill skills/frontend/playwright
-```
-
-## Updates
-
-Submodules are automatically updated daily via GitHub Actions.

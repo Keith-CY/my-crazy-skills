@@ -4,11 +4,15 @@ set -euo pipefail
 usage() {
   cat <<'EOF'
 Usage:
-  ./INSTALL.sh [--global] [--project /path/to/project]
+  ./INSTALL.sh [--global] [--project /path/to/project] [--codex|--claude|--gemini|--opencode]
 
 Options:
-  --global            Install to ~/.codex/skills (default)
-  --project PATH      Install to PATH/.codex/skills
+  --global            Install to the user's global skills directory (default)
+  --project PATH      Install to PATH/<agent skills dir>
+  --codex             Target Codex skills (default)
+  --claude            Target Claude Code skills
+  --gemini            Target Gemini CLI skills
+  --opencode          Target OpenCode skills
   -h, --help          Show this help
 
 Notes:
@@ -21,6 +25,7 @@ root_dir="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 source_skills="${root_dir}/skills"
 
 mode="global"
+target="codex"
 project_path=""
 
 while [[ $# -gt 0 ]]; do
@@ -37,6 +42,15 @@ while [[ $# -gt 0 ]]; do
         exit 1
       fi
       shift 2
+      ;;
+    --codex|--claude|--gemini|--opencode)
+      new_target="${1#--}"
+      if [[ "${target}" != "codex" && "${target}" != "${new_target}" ]]; then
+        echo "Error: only one target can be specified." >&2
+        exit 1
+      fi
+      target="${new_target}"
+      shift
       ;;
     -h|--help)
       usage
@@ -60,12 +74,38 @@ if [[ "${mode}" == "project" ]]; then
     echo "Error: project path not found: ${project_path}" >&2
     exit 1
   fi
-  dest_dir="${project_path}/.codex"
-  dest_skills="${dest_dir}/skills"
-else
-  dest_dir="${HOME}/.codex"
-  dest_skills="${dest_dir}/skills"
 fi
+
+case "${target}" in
+  codex)
+    base_dir_global="${HOME}/.codex"
+    base_dir_project=".codex"
+    ;;
+  claude)
+    base_dir_global="${HOME}/.claude"
+    base_dir_project=".claude"
+    ;;
+  gemini)
+    base_dir_global="${HOME}/.gemini"
+    base_dir_project=".gemini"
+    ;;
+  opencode)
+    base_dir_global="${HOME}/.config/opencode"
+    base_dir_project=".opencode"
+    ;;
+  *)
+    echo "Error: unsupported target: ${target}" >&2
+    exit 1
+    ;;
+esac
+
+if [[ "${mode}" == "project" ]]; then
+  dest_dir="${project_path}/${base_dir_project}"
+else
+  dest_dir="${base_dir_global}"
+fi
+
+dest_skills="${dest_dir}/skills"
 
 mkdir -p "${dest_dir}"
 
