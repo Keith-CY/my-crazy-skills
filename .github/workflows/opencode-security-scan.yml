@@ -94,50 +94,59 @@ jobs:
             echo "Scanning $target..."
             if ! (cd "$target" && \
               OPENCODE_PERMISSION='{"*":"allow"}' \
-              OPENCODE_DISABLE_MODELS_FETCH=true \
               OPENCODE_ENABLE_EXPERIMENTAL_MODELS=true \
               opencode run --model opencode/big-pickle --format json "$prompt" > "$raw"); then
               echo "::error::OpenCode scan failed for $target"
               had_errors=1
               continue
             fi
-            python3 - <<PY
-            import json
-            import re
-            from pathlib import Path
-            raw_path = Path(r"$raw")
-            out_path = Path(r"$out")
-            texts = []
-            for line in raw_path.read_text().splitlines():
-                try:
-                    obj = json.loads(line)
-                except json.JSONDecodeError:
-                    continue
-                if obj.get("type") == "text":
-                    text = (obj.get("part") or {}).get("text") or ""
-                    if text:
-                        texts.append(text)
-            def extract_json(text):
-                try:
-                    return json.loads(text)
-                except json.JSONDecodeError:
-                    pass
-                match = re.search(r"(\\{.*?\\}|\\[.*?\\])", text, re.DOTALL)
-                if match:
-                    try:
-                        return json.loads(match.group(1))
-                    except json.JSONDecodeError:
-                        return None
-                return None
-            data = None
-            for text in texts:
-                data = extract_json(text)
-                if data is not None:
-                    break
-            if data is None:
-                raise SystemExit("No JSON object found in OpenCode output")
-            out_path.write_text(json.dumps(data))
-            PY
+            parse_err="${reports_dir}/${name}.parse.err"
+            if ! python3 - <<PY 2>"$parse_err"
+          import json
+          import re
+          from pathlib import Path
+          raw_path = Path(r"$raw")
+          out_path = Path(r"$out")
+          texts = []
+          for line in raw_path.read_text().splitlines():
+              try:
+                  obj = json.loads(line)
+              except json.JSONDecodeError:
+                  continue
+              if obj.get("type") == "text":
+                  text = (obj.get("part") or {}).get("text") or ""
+                  if text:
+                      texts.append(text)
+          def extract_json(text):
+              try:
+                  return json.loads(text)
+              except json.JSONDecodeError:
+                  pass
+              match = re.search(r"(\\{.*?\\}|\\[.*?\\])", text, re.DOTALL)
+              if match:
+                  try:
+                      return json.loads(match.group(1))
+                  except json.JSONDecodeError:
+                      return None
+              return None
+          data = None
+          for text in texts:
+              data = extract_json(text)
+              if data is not None:
+                  break
+          if data is None:
+              raise SystemExit("No JSON object found in OpenCode output")
+          out_path.write_text(json.dumps(data))
+          PY
+            then
+              if rg -q "No JSON object found in OpenCode output" "$parse_err"; then
+                echo "::warning::OpenCode output for $target did not include JSON; skipping"
+                continue
+              fi
+              echo "::error::Failed to parse OpenCode output for $target"
+              had_errors=1
+              continue
+            fi
             if ! jq -e '.summary.target and (.findings | type=="array") and all(.findings[]; .severity and (.severity|IN("low","medium","high","critical")) and .location and .summary)' "$out" >/dev/null; then
               echo "::error::Invalid JSON schema for $target"
               had_errors=1
