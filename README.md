@@ -49,6 +49,17 @@ If you already cloned:
 git submodule update --init --recursive
 ```
 
+## One-line install (curl | sh)
+
+If you want a quick install that links the skills into Codex globally, you can run:
+
+```bash
+curl -fsSL https://raw.githubusercontent.com/Keith-CY/my-crazy-skills/main/INSTALL.sh | sh
+```
+
+Notes:
+- If you want a per-project link instead of global, download `INSTALL.sh` and run `./INSTALL.sh --project /path/to/project`.
+
 ## Add a skill
 
 ```bash
