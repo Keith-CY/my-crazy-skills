@@ -13,7 +13,8 @@ Notes:
   - Claude: `curl -fsSL https://raw.githubusercontent.com/Keith-CY/my-crazy-skills/main/INSTALL.sh | sh -s -- --claude`
   - Gemini: `curl -fsSL https://raw.githubusercontent.com/Keith-CY/my-crazy-skills/main/INSTALL.sh | sh -s -- --gemini`
   - OpenCode: `curl -fsSL https://raw.githubusercontent.com/Keith-CY/my-crazy-skills/main/INSTALL.sh | sh -s -- --opencode`
-- For a per-project link, download `INSTALL.sh` and run `./INSTALL.sh --project /path/to/project`.
+- Per-project link (Codex example): `curl -fsSL https://raw.githubusercontent.com/Keith-CY/my-crazy-skills/main/INSTALL.sh | sh -s -- --project /path/to/project`
+- Per-project + target (Claude example): `curl -fsSL https://raw.githubusercontent.com/Keith-CY/my-crazy-skills/main/INSTALL.sh | sh -s -- --claude --project /path/to/project`
 
 Collection of AI skills tracked as git submodules. Categories live under `skills/` and reflect the current organization.
 
