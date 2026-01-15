@@ -498,18 +498,29 @@ jobs:
                   META_TEXT=$(echo "$META_JSON" | jq -r '.name + " " + (.description // "") + " " + ((.topics // []) | join(" "))' || echo "")
                 fi
 
-                # Use OpenCode Zen for intelligent categorization (no API key required)
-                OPENCODE_OUTPUT=$(opencode --model zen --repo "$REPO_URL" --prompt "Analyze this repository and categorize as one of: learning, frontend, creative, research, tooling, workflows, platforms, publishing. Return JSON: {\"category\":\"...\",\"confidence\":\"low|medium|high\",\"rationale\":\"...\"}." --format json 2>/dev/null || true)
+                OPENCODE_PROMPT="Analyze this repository and categorize as one of: learning, frontend, creative, research, tooling, workflows, platforms, publishing. Return JSON: {\"category\":\"...\",\"confidence\":\"low|medium|high\",\"rationale\":\"...\"}.\n\nRepository: ${REPO_URL}\nMetadata: ${META_TEXT}"
+                OPENCODE_OUTPUT=$(
+                  OPENCODE_PERMISSION='{"*":"allow"}' \
+                  OPENCODE_DISABLE_MODELS_FETCH=true \
+                  OPENCODE_ENABLE_EXPERIMENTAL_MODELS=true \
+                  opencode run --model opencode/big-pickle --format json "$OPENCODE_PROMPT" 2>/dev/null || true
+                )
               else
                 # Markdown skill file - use file content
-                OPENCODE_OUTPUT=$(opencode --model zen --prompt "Categorize this skill markdown as one of: learning, frontend, creative, research, tooling, workflows, platforms, publishing. Return JSON: {\"category\":\"...\",\"confidence\":\"low|medium|high\",\"rationale\":\"...\"}.\n\nContent:\n${MARKDOWN_SNIPPET}" --format json 2>/dev/null || true)
+                OPENCODE_PROMPT="Categorize this skill markdown as one of: learning, frontend, creative, research, tooling, workflows, platforms, publishing. Return JSON: {\"category\":\"...\",\"confidence\":\"low|medium|high\",\"rationale\":\"...\"}.\n\nContent:\n${MARKDOWN_SNIPPET}"
+                OPENCODE_OUTPUT=$(
+                  OPENCODE_PERMISSION='{"*":"allow"}' \
+                  OPENCODE_DISABLE_MODELS_FETCH=true \
+                  OPENCODE_ENABLE_EXPERIMENTAL_MODELS=true \
+                  opencode run --model opencode/big-pickle --format json "$OPENCODE_PROMPT" 2>/dev/null || true
+                )
               fi
               
               if [[ -n "${OPENCODE_OUTPUT:-}" ]] && echo "$OPENCODE_OUTPUT" | jq empty >/dev/null 2>&1; then
                 DETECTED_CATEGORY=$(echo "$OPENCODE_OUTPUT" | jq -r '.category // "tooling"' || echo "tooling")
-                echo "✅ OpenCode Zen categorized as: $DETECTED_CATEGORY"
+                echo "✅ OpenCode categorized as: $DETECTED_CATEGORY"
               else
-                echo "⚠️ OpenCode Zen CLI not available, using smart metadata analysis"
+                echo "⚠️ OpenCode CLI unavailable or failed, using smart metadata analysis"
                 REPO_NAME=$(basename "$REPO_URL")
                 NAME_LOWER=$(echo "$REPO_NAME" | tr '[:upper:]' '[:lower:]')
                 META_LOWER=$(echo "$META_TEXT" | tr '[:upper:]' '[:lower:]')
