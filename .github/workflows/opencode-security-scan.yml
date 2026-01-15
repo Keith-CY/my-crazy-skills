@@ -1,6 +1,6 @@
 name: OpenCode Security Scan
 
-on:
+"on":
   push:
     branches: [main]
     paths:
@@ -10,7 +10,7 @@ on:
     paths:
       - "skills/**"
       - ".gitmodules"
-  workflow_dispatch: {}
+  workflow_dispatch:
 
 permissions:
   contents: read
