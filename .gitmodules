@@ -43,3 +43,9 @@
 [submodule "skills/general/claude-skills"]
 	path = skills/general/claude-skills
 	url = https://github.com/alirezarezvani/claude-skills
+[submodule "skills/frontend/ui-skills"]
+	path = skills/frontend/ui-skills
+	url = https://github.com/ibelick/ui-skills
+[submodule "skills/tooling/design-engineer-auditor-package"]
+	path = skills/tooling/design-engineer-auditor-package
+	url = https://github.com/kylezantos/design-engineer-auditor-package

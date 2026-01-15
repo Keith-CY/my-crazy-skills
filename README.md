@@ -10,6 +10,7 @@ Auto-generated from the `skills/` directory.
 - `skills/creative/`
   - `skill-prompt-generator`
 - `skills/frontend/`
+  - `ui-skills`
   - `ui-ux-pro-max-skill`
 - `skills/general/`
   - `claude-skills`
@@ -26,6 +27,7 @@ Auto-generated from the `skills/` directory.
 - `skills/tooling/`
   - `agent-skills`
   - `claude-code-templates`
+  - `design-engineer-auditor-package`
   - `mcp-progressive-agentskill`
   - `skills`
 - `skills/workflows/`
