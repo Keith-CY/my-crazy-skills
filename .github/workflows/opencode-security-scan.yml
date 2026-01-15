@@ -87,7 +87,7 @@ jobs:
             out="${reports_dir}/${name}.json"
             raw="${reports_dir}/${name}.events.jsonl"
 
-            prompt="Scan this repository for malicious code patterns and risky dependencies. Return strict JSON only with this schema: {\"summary\":{\"target\":\"${name}\",\"issues_found\":<int>},\"findings\":[{\"severity\":\"low|medium|high|critical\",\"location\":\"...\",\"summary\":\"...\",\"evidence\":\"...\"}]}"
+            prompt="Scan this repository for malicious code patterns and risky dependencies. Return strict JSON only with this schema: {\"summary\":{\"target\":\"${name}\",\"issues_found\":<int>},\"findings\":[{\"severity\":\"low|medium|high|critical\",\"location\":\"...\",\"summary\":\"...\",\"evidence\":\"...\"}]}. Do not add any extra text, code fences, or markdown."
 
             echo "Scanning $target..."
             if ! (cd "$target" && \
@@ -100,7 +100,44 @@ jobs:
               continue
             fi
 
-            jq -r 'select(.type=="text") | .part.text' "$raw" | tail -n 1 > "$out"
+            python3 - <<PY
+import json
+import re
+from pathlib import Path
+
+raw_path = Path(r"$raw")
+out_path = Path(r"$out")
+texts = []
+for line in raw_path.read_text().splitlines():
+    try:
+        obj = json.loads(line)
+    except json.JSONDecodeError:
+        continue
+    if obj.get("type") == "text":
+        text = (obj.get("part") or {}).get("text") or ""
+        if text:
+            texts.append(text)
+
+content = texts[-1] if texts else ""
+
+def extract_json(text):
+    try:
+        return json.loads(text)
+    except json.JSONDecodeError:
+        pass
+    match = re.search(r"(\\{.*\\}|\\[.*\\])", text, re.DOTALL)
+    if match:
+        try:
+            return json.loads(match.group(1))
+        except json.JSONDecodeError:
+            return None
+    return None
+
+data = extract_json(content)
+if data is None:
+    raise SystemExit("No JSON object found in OpenCode output")
+out_path.write_text(json.dumps(data))
+PY
             if ! jq -e '.summary and (.findings | type=="array")' "$out" >/dev/null; then
               echo "::error::Invalid JSON schema for $target"
               had_errors=1
