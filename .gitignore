@@ -1,0 +1,11 @@
+.DS_Store
+.env
+.idea/
+.vscode/
+node_modules/
+dist/
+coverage/
+.codex/auth.json
+.codex/history.jsonl
+.codex/log/
+.codex/sessions/
