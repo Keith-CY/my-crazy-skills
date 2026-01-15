@@ -27,9 +27,11 @@ if skills_dir.is_dir():
 
 lines = []
 for category, items in categories.items():
-    lines.append(f"- `skills/{category}/`")
+    category_path = f"skills/{category}/"
+    lines.append(f"- [`{category_path}`]({category_path})")
     for item in items:
-        lines.append(f"  - `{item}`")
+        item_path = f"skills/{category}/{item}"
+        lines.append(f"  - [`{item}`]({item_path})")
 
 skills_block = "\n".join(lines) if lines else "- _No skills found._"
 
