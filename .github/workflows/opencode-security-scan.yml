@@ -85,6 +85,8 @@ jobs:
 
             if ! (cd "$target" && \
               OPENCODE_PERMISSION='{"*":"allow"}' \
+              OPENCODE_DISABLE_MODELS_FETCH=true \
+              OPENCODE_ENABLE_EXPERIMENTAL_MODELS=true \
               opencode run --model opencode/zen --format json "$prompt" > "$raw"); then
               echo "OpenCode scan failed for $target"
               had_errors=1
