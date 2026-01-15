@@ -49,3 +49,6 @@
 [submodule "skills/tooling/design-engineer-auditor-package"]
 	path = skills/tooling/design-engineer-auditor-package
 	url = https://github.com/kylezantos/design-engineer-auditor-package
+[submodule "skills/research/notebooklm-py"]
+	path = skills/research/notebooklm-py
+	url = https://github.com/teng-lin/notebooklm-py

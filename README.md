@@ -55,6 +55,7 @@ Auto-generated from the `skills/` directory.
   - [`x-article-publisher-skill`](https://github.com/wshuyi/x-article-publisher-skill)
 - [`skills/research/`](skills/research/)
   - [`ipsw-skill`](https://github.com/blacktop/ipsw-skill)
+  - [`notebooklm-py`](https://github.com/teng-lin/notebooklm-py)
   - [`notebooklm-skill`](https://github.com/PleasePrompto/notebooklm-skill)
 - [`skills/tooling/`](skills/tooling/)
   - [`agent-skills`](https://github.com/vercel-labs/agent-skills)
