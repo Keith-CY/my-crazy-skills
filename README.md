@@ -2,39 +2,46 @@
 
 [![OpenCode Security Scan](https://github.com/Keith-CY/my-crazy-skills/actions/workflows/opencode-security-scan.yml/badge.svg?branch=main)](https://github.com/Keith-CY/my-crazy-skills/actions/workflows/opencode-security-scan.yml)
 
-## Quick install
+Collection of AI "skills" tracked as git submodules. Categories live under `skills/` and reflect the current organization.
 
-**Run this once to link skills globally for Codex:**
+This repo is meant to be *linked* into an agent's skills directory (global or per-project) via `INSTALL.sh`.
+
+## Install
+
+### Quick install (curl)
+
+If you use `curl | sh`, consider inspecting `INSTALL.sh` first.
 
 ```bash
 curl -fsSL https://raw.githubusercontent.com/Keith-CY/my-crazy-skills/main/INSTALL.sh | sh
 ```
 
-Notes:
-- `curl | sh` auto-clones to `~/.cache/my-crazy-skills` if no local `skills/` is found.
-- Target other agents:
-  - Claude:
-    ```bash
-    curl -fsSL https://raw.githubusercontent.com/Keith-CY/my-crazy-skills/main/INSTALL.sh | sh -s -- --claude
-    ```
-  - Gemini:
-    ```bash
-    curl -fsSL https://raw.githubusercontent.com/Keith-CY/my-crazy-skills/main/INSTALL.sh | sh -s -- --gemini
-    ```
-  - OpenCode:
-    ```bash
-    curl -fsSL https://raw.githubusercontent.com/Keith-CY/my-crazy-skills/main/INSTALL.sh | sh -s -- --opencode
-    ```
-- Per-project link (Codex example):
-  ```bash
-  curl -fsSL https://raw.githubusercontent.com/Keith-CY/my-crazy-skills/main/INSTALL.sh | sh -s -- --project /path/to/project
-  ```
-- Per-project + target (Claude example):
-  ```bash
-  curl -fsSL https://raw.githubusercontent.com/Keith-CY/my-crazy-skills/main/INSTALL.sh | sh -s -- --claude --project /path/to/project
-  ```
+By default this links skills globally for Codex (`~/.codex/skills`).
 
-Collection of AI skills tracked as git submodules. Categories live under `skills/` and reflect the current organization.
+### Install from a local clone (recommended)
+
+```bash
+git clone --recurse-submodules https://github.com/Keith-CY/my-crazy-skills
+cd my-crazy-skills
+./INSTALL.sh --help
+./INSTALL.sh
+```
+
+### Notes and examples
+
+- If no local `skills/` directory is found, the installer auto-clones to `~/.cache/my-crazy-skills`.
+- Existing non-symlink destinations are backed up with a `.bak.<timestamp>` suffix.
+- Target other agents:
+  - Claude: `curl -fsSL https://raw.githubusercontent.com/Keith-CY/my-crazy-skills/main/INSTALL.sh | sh -s -- --claude`
+  - Gemini: `curl -fsSL https://raw.githubusercontent.com/Keith-CY/my-crazy-skills/main/INSTALL.sh | sh -s -- --gemini`
+  - OpenCode: `curl -fsSL https://raw.githubusercontent.com/Keith-CY/my-crazy-skills/main/INSTALL.sh | sh -s -- --opencode`
+- Per-project link (Codex example): `curl -fsSL https://raw.githubusercontent.com/Keith-CY/my-crazy-skills/main/INSTALL.sh | sh -s -- --project /path/to/project`
+- Per-project + target (Claude example): `curl -fsSL https://raw.githubusercontent.com/Keith-CY/my-crazy-skills/main/INSTALL.sh | sh -s -- --claude --project /path/to/project`
+
+## Updating
+
+- Local clone: `git pull --recurse-submodules` (or `git submodule update --init --recursive`).
+- `curl | sh` installs: re-run the installer (it reuses `~/.cache/my-crazy-skills` if present).
 
 ## Layout
 

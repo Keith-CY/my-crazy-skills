@@ -15,7 +15,7 @@ This directory contains AI skills organized by category. Each skill is added as 
 
 ## Adding a New Skill
 
-To add a new skill, use the following command:
+To add a new skill, add it as a submodule under the appropriate category:
 
 ```bash
 git submodule add <repository_url> skills/<category>/<skill_name>
@@ -24,6 +24,12 @@ git submodule add <repository_url> skills/<category>/<skill_name>
 Example:
 ```bash
 git submodule add https://github.com/example/playwright-skill skills/frontend/playwright
+```
+
+After adding, make sure submodules are initialized locally:
+
+```bash
+git submodule update --init --recursive
 ```
 
 ## Automatic Updates
