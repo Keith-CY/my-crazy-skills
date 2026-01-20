@@ -63,6 +63,7 @@ Auto-generated from the `skills/` directory.
   - [`notebooklm-py`](https://github.com/teng-lin/notebooklm-py)
   - [`notebooklm-skill`](https://github.com/PleasePrompto/notebooklm-skill)
 - [`skills/tooling/`](skills/tooling/)
+  - [`agent-browser`](skills/tooling/agent-browser)
   - [`agent-skills`](https://github.com/vercel-labs/agent-skills)
   - [`claude-code-templates`](https://github.com/davila7/claude-code-templates)
   - [`design-engineer-auditor-package`](https://github.com/kylezantos/design-engineer-auditor-package)
