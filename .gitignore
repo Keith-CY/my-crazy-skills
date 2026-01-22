@@ -6,5 +6,6 @@ node_modules/
 dist/
 coverage/
 .codex/
+.worktree/
 __pycache__/
 *.pyc
