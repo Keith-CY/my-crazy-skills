@@ -1,0 +1,76 @@
+name: Sync Popular Skills from skills.sh
+
+on:
+  schedule:
+    - cron: "0 3 * * *"
+  workflow_dispatch:
+    inputs:
+      view:
+        description: "Which skills.sh list to use"
+        required: false
+        default: "all-time"
+        type: choice
+        options:
+          - all-time
+          - trending
+      min_installs:
+        description: "Minimum installs threshold"
+        required: false
+        default: "1000"
+        type: string
+      max_sources:
+        description: "Max unique repos to add (0 = unlimited)"
+        required: false
+        default: "0"
+        type: string
+      dest_dir:
+        description: "Destination directory for added submodules"
+        required: false
+        default: "skills/popular"
+        type: string
+
+permissions:
+  contents: write
+
+jobs:
+  sync:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+          token: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.x"
+
+      - name: Configure Git
+        run: |
+          git config --global user.name "github-actions[bot]"
+          git config --global user.email "github-actions[bot]@users.noreply.github.com"
+
+      - name: Sync popular skills sources (as submodules)
+        env:
+          VIEW: ${{ github.event.inputs.view || 'all-time' }}
+          MIN_INSTALLS: ${{ github.event.inputs.min_installs || '1000' }}
+          MAX_SOURCES: ${{ github.event.inputs.max_sources || '0' }}
+          DEST_DIR: ${{ github.event.inputs.dest_dir || 'skills/popular' }}
+        run: |
+          bash scripts/sync-skills-from-skills-sh.sh
+          git submodule update --init --recursive
+
+      - name: Check for changes
+        id: git-check
+        run: |
+          git diff --quiet . || echo "changed=true" >> $GITHUB_OUTPUT
+
+      - name: Commit and push changes
+        if: steps.git-check.outputs.changed == 'true'
+        run: |
+          git add .gitmodules "${{ github.event.inputs.dest_dir || 'skills/popular' }}"
+          git commit -m "chore: sync popular skills from skills.sh"
+          git push
+

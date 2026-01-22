@@ -42,6 +42,7 @@ cd my-crazy-skills
 
 - Local clone: `git pull --recurse-submodules` (or `git submodule update --init --recursive`).
 - `curl | sh` installs: re-run the installer (it reuses `~/.cache/my-crazy-skills` if present).
+- GitHub Actions: `Sync Popular Skills from skills.sh` (`.github/workflows/update-skills-from-skills-sh.yml`) can add/update popular skill sources as submodules under `skills/popular/`.
 
 ## Layout
 
