@@ -107,6 +107,11 @@ def _sources_sorted_by_peak_installs(skills: list[Skill]) -> list[str]:
 def main() -> int:
     parser = argparse.ArgumentParser(description="Extract popular skill sources from skills.sh")
     parser.add_argument("--url", default="https://skills.sh/", help="Base URL to fetch (default: https://skills.sh/)")
+    parser.add_argument(
+        "--html-path",
+        default="",
+        help="Read skills.sh HTML from a local file (or '-' for stdin) instead of fetching --url",
+    )
     parser.add_argument("--view", choices=["trending", "all-time"], default="all-time")
     parser.add_argument("--min-installs", type=int, default=1000)
     parser.add_argument("--max-sources", type=int, default=0, help="0 means no limit")
@@ -114,7 +119,14 @@ def main() -> int:
     parser.add_argument("--timeout", type=int, default=30)
     args = parser.parse_args()
 
-    html = _fetch_text(args.url, timeout_seconds=args.timeout)
+    if args.html_path:
+        if args.html_path == "-":
+            html = sys.stdin.read()
+        else:
+            with open(args.html_path, "r", encoding="utf-8", errors="replace") as handle:
+                html = handle.read()
+    else:
+        html = _fetch_text(args.url, timeout_seconds=args.timeout)
     skills_payload = _find_skills_payload(_iter_next_push_strings(html))
     if skills_payload is None:
         print("ERROR: Could not locate skills payload in skills.sh HTML", file=sys.stderr)
@@ -164,4 +176,3 @@ def main() -> int:
 
 if __name__ == "__main__":
     raise SystemExit(main())
-
