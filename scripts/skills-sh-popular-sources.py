@@ -6,6 +6,7 @@ import json
 import re
 import sys
 import urllib.request
+from collections import defaultdict
 from dataclasses import dataclass
 from typing import Any, Iterable
 
@@ -90,18 +91,10 @@ def _parse_skills(items: list[dict[str, Any]]) -> list[Skill]:
         if not isinstance(installs, int):
             try:
                 installs = int(installs)
-            except Exception:
+            except (ValueError, TypeError):
                 installs = 0
         skills.append(Skill(source=source, skill_id=skill_id, name=name, installs=installs))
     return skills
-
-
-def _sources_sorted_by_peak_installs(skills: list[Skill]) -> list[str]:
-    peak_installs_by_source: dict[str, int] = {}
-    for skill in skills:
-        previous = peak_installs_by_source.get(skill.source, 0)
-        peak_installs_by_source[skill.source] = max(previous, skill.installs)
-    return [source for source, _ in sorted(peak_installs_by_source.items(), key=lambda it: it[1], reverse=True)]
 
 
 def main() -> int:
@@ -139,7 +132,15 @@ def main() -> int:
         return 2
 
     skills = [skill for skill in _parse_skills(raw_items) if skill.installs >= args.min_installs]
-    sources = _sources_sorted_by_peak_installs(skills)
+
+    skills_by_source: dict[str, list[Skill]] = defaultdict(list)
+    for skill in skills:
+        skills_by_source[skill.source].append(skill)
+
+    peak_installs_by_source = {
+        source: max(source_skills, key=lambda s: s.installs).installs for source, source_skills in skills_by_source.items()
+    }
+    sources = sorted(peak_installs_by_source, key=peak_installs_by_source.get, reverse=True)
     if args.max_sources and args.max_sources > 0:
         sources = sources[: args.max_sources]
 
@@ -148,11 +149,11 @@ def main() -> int:
             [
                 {
                     "source": source,
-                    "peak_installs": max(skill.installs for skill in skills if skill.source == source),
+                    "peak_installs": peak_installs_by_source[source],
                     "skills": [
                         {"skillId": skill.skill_id, "name": skill.name, "installs": skill.installs}
                         for skill in sorted(
-                            [s for s in skills if s.source == source],
+                            skills_by_source[source],
                             key=lambda s: s.installs,
                             reverse=True,
                         )
