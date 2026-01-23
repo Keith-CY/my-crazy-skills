@@ -31,6 +31,7 @@ cd my-crazy-skills
 
 - If no local `skills/` directory is found, the installer auto-clones to `~/.cache/my-crazy-skills`.
 - Existing non-symlink destinations are backed up with a `.bak.<timestamp>` suffix.
+- If `bun` is available, the installer generates a de-duplicated tree at `skills/.deduped` (same upstream repo + same commit only) to avoid double-listed skills.
 - Target other agents:
   - Claude: `curl -fsSL https://raw.githubusercontent.com/Keith-CY/my-crazy-skills/main/INSTALL.sh | sh -s -- --claude`
   - Gemini: `curl -fsSL https://raw.githubusercontent.com/Keith-CY/my-crazy-skills/main/INSTALL.sh | sh -s -- --gemini`
@@ -61,23 +62,18 @@ Auto-generated from the `skills/` directory.
   - [`ui-ux-pro-max-skill`](https://github.com/nextlevelbuilder/ui-ux-pro-max-skill)
 - [`skills/general/`](skills/general/)
   - [`claude-skills`](https://github.com/alirezarezvani/claude-skills)
-  - [`clawdhub`](https://github.com/clawdbot/clawdhub)
-  - [`ipsw-skill`](https://github.com/blacktop/ipsw-skill)
-  - [`mcp-progressive-agentskill`](https://github.com/cablate/mcp-progressive-agentskill)
 - [`skills/learning/`](skills/learning/)
   - [`33-js-concepts`](https://github.com/leonardomso/33-js-concepts)
 - [`skills/platforms/`](skills/platforms/)
   - [`clawdhub`](https://github.com/clawdbot/clawdhub)
   - [`marketplace`](https://github.com/aiskillstore/marketplace)
 - [`skills/popular/`](skills/popular/)
-  - [`anthropics--skills`](https://github.com/anthropics/skills.git)
   - [`better-auth--skills`](https://github.com/better-auth/skills.git)
   - [`callstackincubator--agent-skills`](https://github.com/callstackincubator/agent-skills.git)
   - [`coreyhaines31--marketingskills`](https://github.com/coreyhaines31/marketingskills.git)
   - [`expo--skills`](https://github.com/expo/skills.git)
   - [`remotion-dev--skills`](https://github.com/remotion-dev/skills.git)
   - [`vercel-labs--agent-browser`](https://github.com/vercel-labs/agent-browser.git)
-  - [`vercel-labs--agent-skills`](https://github.com/vercel-labs/agent-skills.git)
 - [`skills/publishing/`](skills/publishing/)
   - [`x-article-publisher-skill`](https://github.com/wshuyi/x-article-publisher-skill)
 - [`skills/research/`](skills/research/)

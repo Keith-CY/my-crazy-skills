@@ -43,7 +43,9 @@ else
   root_dir=""
 fi
 
-source_skills="${root_dir}/skills"
+source_root="${root_dir}"
+source_skills_raw="${source_root}/skills"
+source_skills="${source_skills_raw}"
 
 mode="global"
 target="codex"
@@ -100,11 +102,29 @@ if [ ! -d "${source_skills}" ]; then
       echo "Cloning ${repo_url} into ${cache_dir}"
       git clone --recurse-submodules "${repo_url}" "${cache_dir}"
     fi
-    source_skills="${cache_dir}/skills"
+    source_root="${cache_dir}"
+    source_skills_raw="${source_root}/skills"
+    source_skills="${source_skills_raw}"
   else
     echo "Error: skills directory not found and git is not installed." >&2
     echo "Install git or clone the repo and run from its root." >&2
     exit 1
+  fi
+fi
+
+# Prefer a de-duplicated tree so skills aren't double-listed when the same upstream
+# repo is included multiple times under different categories (same commit).
+dedup_out="${source_skills_raw}/.deduped"
+if [ -d "${dedup_out}" ]; then
+  source_skills="${dedup_out}"
+elif command -v bun >/dev/null 2>&1 && [ -f "${source_root}/scripts/dedupe-skills.ts" ]; then
+  echo "Generating deduped skills tree with bun..."
+  if bun "${source_root}/scripts/dedupe-skills.ts" --root "${source_root}" --out "skills/.deduped" >/dev/null; then
+    if [ -d "${dedup_out}" ]; then
+      source_skills="${dedup_out}"
+    fi
+  else
+    echo "Warning: failed to generate deduped skills tree; installing raw skills/ instead." >&2
   fi
 fi
 

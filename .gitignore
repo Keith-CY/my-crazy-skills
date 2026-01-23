@@ -7,5 +7,7 @@ dist/
 coverage/
 .codex/
 .worktree/
+.scratch/
+skills/.deduped/
 __pycache__/
 *.pyc

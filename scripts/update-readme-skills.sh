@@ -4,10 +4,21 @@ set -euo pipefail
 ROOT_DIR=$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)
 README="${ROOT_DIR}/README.md"
 SKILLS_DIR="${ROOT_DIR}/skills"
+DEDUPED_DIR="${ROOT_DIR}/skills/.deduped"
+REPO_ROOT="${ROOT_DIR}"
 START_MARKER="<!-- SKILLS-LIST:START -->"
 END_MARKER="<!-- SKILLS-LIST:END -->"
 
-export README SKILLS_DIR START_MARKER END_MARKER
+if [ -d "${DEDUPED_DIR}" ]; then
+  SKILLS_DIR="${DEDUPED_DIR}"
+elif command -v bun >/dev/null 2>&1 && [ -f "${ROOT_DIR}/scripts/dedupe-skills.ts" ]; then
+  bun "${ROOT_DIR}/scripts/dedupe-skills.ts" --root "${ROOT_DIR}" --out "skills/.deduped" >/dev/null || true
+  if [ -d "${DEDUPED_DIR}" ]; then
+    SKILLS_DIR="${DEDUPED_DIR}"
+  fi
+fi
+
+export README SKILLS_DIR REPO_ROOT START_MARKER END_MARKER
 
 python3 - <<'PY'
 import configparser
@@ -16,9 +27,10 @@ from pathlib import Path
 
 readme_path = Path(os.environ["README"])
 skills_dir = Path(os.environ["SKILLS_DIR"])
+repo_root = Path(os.environ["REPO_ROOT"])
 start = os.environ["START_MARKER"]
 end = os.environ["END_MARKER"]
-gitmodules_path = skills_dir.parent / ".gitmodules"
+gitmodules_path = repo_root / ".gitmodules"
 
 submodule_urls = {}
 if gitmodules_path.exists():
