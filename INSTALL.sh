@@ -138,11 +138,7 @@ fi
 
 # Resolve bun (optional). We use bun to run scripts/dedupe-skills.ts without any npm/pnpm/yarn installs.
 bun_bin=""
-if [ -n "${BUN_BIN:-}" ]; then
-  bun_bin="${BUN_BIN}"
-elif command -v bun >/dev/null 2>&1; then
-  bun_bin="$(command -v bun)"
-fi
+bun_bin="${BUN_BIN:-$(command -v bun 2>/dev/null)}"
 if [ -n "${bun_bin}" ] && [ ! -x "${bun_bin}" ]; then
   echo "Warning: BUN_BIN is set but not executable: ${bun_bin}" >&2
   bun_bin=""
@@ -159,7 +155,7 @@ if [ "${dedupe_only}" = "1" ]; then
   fi
   echo "Generating deduped skills tree with bun..."
   rm -rf "${dedup_out}"
-  if "${bun_bin}" "${source_root}/scripts/dedupe-skills.ts" --root "${source_root}" --out "skills/.deduped" >/dev/null; then
+  if "${bun_bin}" "${source_root}/scripts/dedupe-skills.ts" --root "${source_root}" --out "skills/.deduped" >/dev/null && [ -d "${dedup_out}" ]; then
     echo "Generated: ${dedup_out}"
     exit 0
   fi
@@ -178,6 +174,7 @@ else
     if "${bun_bin}" "${source_root}/scripts/dedupe-skills.ts" --root "${source_root}" --out "skills/.deduped" >/dev/null; then
       if [ -d "${dedup_out}" ]; then
         source_skills="${dedup_out}"
+        echo "Successfully generated deduped skills tree."
       else
         source_skills="${source_skills_raw}"
       fi
