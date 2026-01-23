@@ -1,0 +1,25 @@
+name: Cleanup Auto-Add Branches
+
+on:
+  pull_request:
+    types: [closed]
+
+permissions:
+  contents: write
+
+jobs:
+  cleanup:
+    if: >
+      github.event.pull_request.merged == true &&
+      github.event.pull_request.head.repo.full_name == github.repository &&
+      startsWith(github.event.pull_request.head.ref, 'auto-add-skills-')
+    runs-on: ubuntu-latest
+    steps:
+      - name: Delete auto-add branch
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          BRANCH: ${{ github.event.pull_request.head.ref }}
+        run: |
+          set -euo pipefail
+          echo "Deleting branch: ${BRANCH}"
+          gh api -X DELETE "repos/${{ github.repository }}/git/refs/heads/${BRANCH}" || true

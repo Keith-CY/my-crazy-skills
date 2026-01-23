@@ -412,11 +412,20 @@ jobs:
       - name: Check existing submodules
         run: |
           if [[ -f .gitmodules ]]; then
-            grep '^\s*url' .gitmodules | sed 's/.*= //' | sort > /tmp/existing_submodules.txt
-            echo "Existing submodules:"
-            cat /tmp/existing_submodules.txt
+            grep -E '^\s*url\s*=' .gitmodules \
+              | sed -E 's/.*=\s*//' \
+              | sed -E 's#\.git$##; s#/$##' \
+              | sort -u > /tmp/existing_submodule_urls.txt
+
+            grep -E '^\s*path\s*=' .gitmodules \
+              | sed -E 's/.*=\s*//' \
+              | sort -u > /tmp/existing_submodule_paths.txt
+
+            echo "Existing submodule URLs (normalized):"
+            cat /tmp/existing_submodule_urls.txt
           else
-            touch /tmp/existing_submodules.txt
+            : > /tmp/existing_submodule_urls.txt
+            : > /tmp/existing_submodule_paths.txt
             echo "No existing submodules"
           fi
 
@@ -470,15 +479,18 @@ jobs:
               REPO_URL="$ITEM"
             fi
 
+            # Normalize URL for comparisons and consistent behavior
+            REPO_URL_NORM="$(echo "$REPO_URL" | sed -E 's#\\.git$##; s#/$##')"
+
             if [[ "$ITEM_TYPE" == "repo" ]]; then
-              if grep -qF "$REPO_URL" /tmp/existing_submodules.txt 2>/dev/null; then
-                echo "⏭️  Skipping existing submodule: $REPO_URL"
+              if grep -qF "$REPO_URL_NORM" /tmp/existing_submodule_urls.txt 2>/dev/null; then
+                echo "⏭️  Skipping existing submodule (URL already present): $REPO_URL_NORM"
                 SKIPPED_COUNT=$((SKIPPED_COUNT + 1))
                 continue
               fi
             fi
 
-            echo "🔍 Processing $REPO_URL..."
+            echo "🔍 Processing $REPO_URL_NORM..."
 
             MARKDOWN_CONTENT=""
             MARKDOWN_SNIPPET=""
@@ -488,13 +500,32 @@ jobs:
 
             if [[ "$ITEM_TYPE" == "markdown" || "$ITEM_TYPE" == "tree" ]]; then
               if [[ "$ITEM_TYPE" == "tree" ]]; then
-                CLEAN_URL=$(echo "$REPO_URL" | sed -E 's#/$##')
-                NAME_BASE=$(basename "$CLEAN_URL")
-                RAW_URL=$(echo "$CLEAN_URL" | sed -E 's#https://github\.com/([^/]+/[^/]+)/tree/([^/]+)/(.*)#https://raw.githubusercontent.com/\\1/\\2/\\3#')
-                RAW_URL="${RAW_URL}/SKILL.md"
+                CLEAN_URL="$REPO_URL_NORM"
+
+                # Support both:
+                # - https://github.com/owner/repo/tree/branch
+                # - https://github.com/owner/repo/tree/branch/path/to/skill-dir
+                if [[ "$CLEAN_URL" =~ ^https://github\.com/([^/]+)/([^/]+)/tree/([^/]+)(/(.*))?$ ]]; then
+                  TREE_OWNER="${BASH_REMATCH[1]}"
+                  TREE_REPO="${BASH_REMATCH[2]}"
+                  TREE_BRANCH="${BASH_REMATCH[3]}"
+                  TREE_PATH="${BASH_REMATCH[5]-}"
+
+                  if [[ -n "${TREE_PATH}" ]]; then
+                    NAME_BASE="$(basename "${TREE_PATH}")"
+                    RAW_URL="https://raw.githubusercontent.com/${TREE_OWNER}/${TREE_REPO}/${TREE_BRANCH}/${TREE_PATH}/SKILL.md"
+                  else
+                    NAME_BASE="${TREE_REPO}"
+                    RAW_URL="https://raw.githubusercontent.com/${TREE_OWNER}/${TREE_REPO}/${TREE_BRANCH}/SKILL.md"
+                  fi
+                else
+                  echo "❌ Unrecognized tree URL format: $CLEAN_URL"
+                  FAILED_COUNT=$((FAILED_COUNT + 1))
+                  continue
+                fi
                 FILENAME="SKILL.md"
               else
-                RAW_URL=$(echo "$REPO_URL" | sed -E 's#https://github\.com/([^/]+/[^/]+)/blob/#https://raw.githubusercontent.com/\\1/#')
+                RAW_URL=$(echo "$REPO_URL_NORM" | sed -E 's#https://github\.com/([^/]+/[^/]+)/blob/#https://raw.githubusercontent.com/\\1/#')
                 FILENAME=$(basename "$RAW_URL" | sed -E 's/\\?.*$//')
                 NAME_BASE=$(echo "$FILENAME" | sed -E 's/\\.[mM][dD]$//')
               fi
@@ -551,8 +582,8 @@ jobs:
                 echo "✅ OpenCode categorized as: $DETECTED_CATEGORY"
               else
                 echo "⚠️ OpenCode CLI unavailable or failed, using smart metadata analysis"
-                REPO_NAME=$(basename "$REPO_URL")
-                NAME_LOWER=$(echo "$REPO_NAME" | tr '[:upper:]' '[:lower:]')
+                REPO_BASENAME=$(basename "$REPO_URL_NORM")
+                NAME_LOWER=$(echo "$REPO_BASENAME" | tr '[:upper:]' '[:lower:]')
                 META_LOWER=$(echo "$META_TEXT" | tr '[:upper:]' '[:lower:]')
                 HAYSTACK="${NAME_LOWER} ${META_LOWER}"
 
@@ -580,8 +611,11 @@ jobs:
               fi
             fi
 
-            REPO_NAME=$(basename "$REPO_URL")
-            SKILL_PATH="skills/${DETECTED_CATEGORY}/${REPO_NAME}"
+            REPO_SLUG="$(echo "$REPO_URL_NORM" | sed -E 's#^https://github\\.com/##')"
+            REPO_OWNER="${REPO_SLUG%%/*}"
+            REPO_NAME="${REPO_SLUG##*/}"
+            REPO_DIR="${REPO_OWNER}--${REPO_NAME}"
+            SKILL_PATH="skills/${DETECTED_CATEGORY}/${REPO_DIR}"
 
             if [[ "$ITEM_TYPE" == "markdown" || "$ITEM_TYPE" == "tree" ]]; then
               SKILL_DIR="skills/${DETECTED_CATEGORY}/${NAME_BASE}"
@@ -598,13 +632,19 @@ jobs:
               ADDED_SKILLS+=("$REPO_URL ($DETECTED_CATEGORY) [markdown]")
               echo "✅ Added markdown skill: $SKILL_FILE"
             else
-              echo "➕ Adding: $REPO_URL -> $SKILL_PATH (ai-categorized)"
+              if grep -qF "$SKILL_PATH" /tmp/existing_submodule_paths.txt 2>/dev/null || [[ -e "$SKILL_PATH" ]]; then
+                echo "⏭️  Skipping: target path already exists: $SKILL_PATH"
+                SKIPPED_COUNT=$((SKIPPED_COUNT + 1))
+                continue
+              fi
 
-              if git submodule add "$REPO_URL" "$SKILL_PATH" 2>&1; then
-                ADDED_SKILLS+=("$REPO_URL ($DETECTED_CATEGORY)")
-                echo "✅ Added: $REPO_URL"
+              echo "➕ Adding: $REPO_URL_NORM -> $SKILL_PATH (ai-categorized)"
+
+              if git submodule add "$REPO_URL_NORM" "$SKILL_PATH" 2>&1; then
+                ADDED_SKILLS+=("$REPO_URL_NORM ($DETECTED_CATEGORY)")
+                echo "✅ Added: $REPO_URL_NORM"
               else
-                echo "❌ Failed to add: $REPO_URL"
+                echo "❌ Failed to add: $REPO_URL_NORM"
                 FAILED_COUNT=$((FAILED_COUNT + 1))
               fi
             fi
