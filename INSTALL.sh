@@ -7,7 +7,7 @@ fi
 usage() {
   cat <<'EOF'
 Usage:
-  ./INSTALL.sh [--global] [--project /path/to/project] [--codex|--claude|--gemini|--opencode]
+  ./INSTALL.sh [--global] [--project /path/to/project] [--codex|--claude|--gemini|--opencode] [--dedupe|--no-dedupe|--dedupe-only|--dedupe-force]
 
 Options:
   --global            Install to the user's global skills directory (default)
@@ -16,10 +16,15 @@ Options:
   --claude            Target Claude Code skills
   --gemini            Target Gemini CLI skills
   --opencode          Target OpenCode skills
+  --dedupe            Prefer a de-duplicated skills tree (default: auto)
+  --no-dedupe         Force linking the raw skills/ tree (ignore skills/.deduped)
+  --dedupe-only       Generate skills/.deduped then exit (no linking)
+  --dedupe-force      Regenerate skills/.deduped even if it exists
   -h, --help          Show this help
 
 Notes:
   - This creates a symlink from this repo's skills/ directory.
+  - De-dupe requires bun. Override bun path via BUN_BIN=/path/to/bun.
   - Existing non-symlink destinations are backed up with a .bak timestamp.
 EOF
 }
@@ -50,6 +55,9 @@ source_skills="${source_skills_raw}"
 mode="global"
 target="codex"
 project_path=""
+dedupe_mode="auto" # auto|off|on
+dedupe_only="0"
+dedupe_force="0"
 
 while [ $# -gt 0 ]; do
   case "$1" in
@@ -73,6 +81,22 @@ while [ $# -gt 0 ]; do
         exit 1
       fi
       target="${new_target}"
+      shift
+      ;;
+    --dedupe)
+      dedupe_mode="on"
+      shift
+      ;;
+    --no-dedupe)
+      dedupe_mode="off"
+      shift
+      ;;
+    --dedupe-only)
+      dedupe_only="1"
+      shift
+      ;;
+    --dedupe-force)
+      dedupe_force="1"
       shift
       ;;
     -h|--help)
@@ -112,19 +136,57 @@ if [ ! -d "${source_skills}" ]; then
   fi
 fi
 
+# Resolve bun (optional). We use bun to run scripts/dedupe-skills.ts without any npm/pnpm/yarn installs.
+bun_bin=""
+bun_bin="${BUN_BIN:-$(command -v bun 2>/dev/null)}"
+if [ -n "${bun_bin}" ] && [ ! -x "${bun_bin}" ]; then
+  echo "Warning: BUN_BIN is set but not executable: ${bun_bin}" >&2
+  bun_bin=""
+fi
+
 # Prefer a de-duplicated tree so skills aren't double-listed when the same upstream
 # repo is included multiple times under different categories (same commit).
 dedup_out="${source_skills_raw}/.deduped"
-if [ -d "${dedup_out}" ]; then
-  source_skills="${dedup_out}"
-elif command -v bun >/dev/null 2>&1 && [ -f "${source_root}/scripts/dedupe-skills.ts" ]; then
+if [ "${dedupe_only}" = "1" ]; then
+  if [ -z "${bun_bin}" ] || [ ! -f "${source_root}/scripts/dedupe-skills.ts" ]; then
+    echo "Error: --dedupe-only requires bun and scripts/dedupe-skills.ts" >&2
+    echo "Hint: install bun or set BUN_BIN=/path/to/bun" >&2
+    exit 1
+  fi
   echo "Generating deduped skills tree with bun..."
-  if bun "${source_root}/scripts/dedupe-skills.ts" --root "${source_root}" --out "skills/.deduped" >/dev/null; then
-    if [ -d "${dedup_out}" ]; then
-      source_skills="${dedup_out}"
+  rm -rf "${dedup_out}"
+  if "${bun_bin}" "${source_root}/scripts/dedupe-skills.ts" --root "${source_root}" --out "skills/.deduped" >/dev/null && [ -d "${dedup_out}" ]; then
+    echo "Generated: ${dedup_out}"
+    exit 0
+  fi
+  echo "Error: failed to generate deduped skills tree" >&2
+  exit 1
+fi
+
+if [ "${dedupe_mode}" = "off" ]; then
+  source_skills="${source_skills_raw}"
+else
+  if [ -d "${dedup_out}" ] && [ "${dedupe_force}" != "1" ]; then
+    source_skills="${dedup_out}"
+  elif [ -n "${bun_bin}" ] && [ -f "${source_root}/scripts/dedupe-skills.ts" ]; then
+    echo "Generating deduped skills tree with bun..."
+    rm -rf "${dedup_out}"
+    if "${bun_bin}" "${source_root}/scripts/dedupe-skills.ts" --root "${source_root}" --out "skills/.deduped" >/dev/null; then
+      if [ -d "${dedup_out}" ]; then
+        source_skills="${dedup_out}"
+        echo "Successfully generated deduped skills tree."
+      else
+        source_skills="${source_skills_raw}"
+      fi
+    else
+      echo "Warning: failed to generate deduped skills tree; installing raw skills/ instead." >&2
+      source_skills="${source_skills_raw}"
     fi
   else
-    echo "Warning: failed to generate deduped skills tree; installing raw skills/ instead." >&2
+    if [ "${dedupe_mode}" = "on" ]; then
+      echo "Warning: bun not found; installing raw skills/ instead. (Install bun to enable dedupe.)" >&2
+    fi
+    source_skills="${source_skills_raw}"
   fi
 fi
 
