@@ -32,6 +32,8 @@ cd my-crazy-skills
 - If no local `skills/` directory is found, the installer auto-clones to `~/.cache/my-crazy-skills`.
 - Existing non-symlink destinations are backed up with a `.bak.<timestamp>` suffix.
 - If `bun` is available, the installer can generate a de-duplicated tree at `skills/.deduped` (same upstream repo + same commit only) to avoid double-listed skills.
+  - `skills/.deduped` is a hidden directory (note the leading `.`). Use `ls -la skills` (or Finder `Cmd+Shift+.`) to view it.
+  - The generated `skills/.deduped/MANIFEST.json` is just metadata about what was de-duplicated.
   - Force-generate only: `./INSTALL.sh --dedupe-only`
   - Force raw skills (no dedupe): `./INSTALL.sh --no-dedupe`
   - Force regenerate: `./INSTALL.sh --dedupe --dedupe-force`
