@@ -31,7 +31,11 @@ cd my-crazy-skills
 
 - If no local `skills/` directory is found, the installer auto-clones to `~/.cache/my-crazy-skills`.
 - Existing non-symlink destinations are backed up with a `.bak.<timestamp>` suffix.
-- If `bun` is available, the installer generates a de-duplicated tree at `skills/.deduped` (same upstream repo + same commit only) to avoid double-listed skills.
+- If `bun` is available, the installer can generate a de-duplicated tree at `skills/.deduped` (same upstream repo + same commit only) to avoid double-listed skills.
+  - Force-generate only: `./INSTALL.sh --dedupe-only`
+  - Force raw skills (no dedupe): `./INSTALL.sh --no-dedupe`
+  - Force regenerate: `./INSTALL.sh --dedupe --dedupe-force`
+  - If `bun` is installed but not on `PATH`, use `BUN_BIN=/path/to/bun` (common: `BUN_BIN=$HOME/.bun/bin/bun`).
 - Target other agents:
   - Claude: `curl -fsSL https://raw.githubusercontent.com/Keith-CY/my-crazy-skills/main/INSTALL.sh | sh -s -- --claude`
   - Gemini: `curl -fsSL https://raw.githubusercontent.com/Keith-CY/my-crazy-skills/main/INSTALL.sh | sh -s -- --gemini`
