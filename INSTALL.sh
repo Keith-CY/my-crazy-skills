@@ -58,7 +58,7 @@ while [ $# -gt 0 ]; do
     --project)
       mode="project"
       project_path="${2:-}"
-      if [[ -z "${project_path}" ]]; then
+      if [ -z "${project_path}" ]; then
         echo "Error: --project requires a path." >&2
         exit 1
       fi

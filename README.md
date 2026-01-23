@@ -44,6 +44,11 @@ cd my-crazy-skills
 - `curl | sh` installs: re-run the installer (it reuses `~/.cache/my-crazy-skills` if present).
 - GitHub Actions: `Sync Popular Skills from skills.sh` (`.github/workflows/update-skills-from-skills-sh.yml`) can add/update popular skill sources as submodules under `skills/popular/`.
 
+## Development
+
+- If you use `git worktree`, keep worktrees under `.worktree/` (gitignored) and remove the worktree + branch after merging.
+- If you need Node.js tooling locally, prefer `bun` over `npm`/`pnpm`/`yarn`.
+
 ## Layout
 
 Auto-generated from the `skills/` directory.
@@ -64,6 +69,15 @@ Auto-generated from the `skills/` directory.
 - [`skills/platforms/`](skills/platforms/)
   - [`clawdhub`](https://github.com/clawdbot/clawdhub)
   - [`marketplace`](https://github.com/aiskillstore/marketplace)
+- [`skills/popular/`](skills/popular/)
+  - [`anthropics--skills`](https://github.com/anthropics/skills.git)
+  - [`better-auth--skills`](https://github.com/better-auth/skills.git)
+  - [`callstackincubator--agent-skills`](https://github.com/callstackincubator/agent-skills.git)
+  - [`coreyhaines31--marketingskills`](https://github.com/coreyhaines31/marketingskills.git)
+  - [`expo--skills`](https://github.com/expo/skills.git)
+  - [`remotion-dev--skills`](https://github.com/remotion-dev/skills.git)
+  - [`vercel-labs--agent-browser`](https://github.com/vercel-labs/agent-browser.git)
+  - [`vercel-labs--agent-skills`](https://github.com/vercel-labs/agent-skills.git)
 - [`skills/publishing/`](skills/publishing/)
   - [`x-article-publisher-skill`](https://github.com/wshuyi/x-article-publisher-skill)
 - [`skills/research/`](skills/research/)
