@@ -85,3 +85,6 @@
 [submodule "skills/popular/coreyhaines31--marketingskills"]
 	path = skills/popular/coreyhaines31--marketingskills
 	url = https://github.com/coreyhaines31/marketingskills.git
+[submodule "skills/tooling/resend--email-best-practices"]
+	path = skills/tooling/resend--email-best-practices
+	url = https://github.com/resend/email-best-practices
