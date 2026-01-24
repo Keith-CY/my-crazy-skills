@@ -412,18 +412,33 @@ jobs:
       - name: Check existing submodules
         run: |
           if [[ -f .gitmodules ]]; then
-            grep -E '^\s*url\s*=' .gitmodules \
-              | sed -E 's/.*=\s*//' \
-              | sed -E 's#\.git$##; s#/$##' \
-              | sort -u > /tmp/existing_submodule_urls.txt
+            git config -f .gitmodules --get-regexp '^submodule\..*\.(path|url)$' \
+              | awk '
+                {
+                  key=$1; val=$2;
+                  sub(/^submodule\./,"",key);
+                  name=key;
+                  sub(/\.(path|url)$/,"",name);
+                  if (key ~ /\.path$/) path[name]=val;
+                  else if (key ~ /\.url$/) {
+                    gsub(/\.git$/,"",val);
+                    sub(/\/$/,"",val);
+                    url[name]=val;
+                  }
+                }
+                END {
+                  for (n in path) if (n in url) print path[n] " " url[n];
+                }
+              ' \
+              | sort -u > /tmp/existing_submodule_path_url.txt
 
-            grep -E '^\s*path\s*=' .gitmodules \
-              | sed -E 's/.*=\s*//' \
-              | sort -u > /tmp/existing_submodule_paths.txt
+            cut -d' ' -f1 /tmp/existing_submodule_path_url.txt | sort -u > /tmp/existing_submodule_paths.txt
+            cut -d' ' -f2- /tmp/existing_submodule_path_url.txt | sort -u > /tmp/existing_submodule_urls.txt
 
             echo "Existing submodule URLs (normalized):"
             cat /tmp/existing_submodule_urls.txt
           else
+            : > /tmp/existing_submodule_path_url.txt
             : > /tmp/existing_submodule_urls.txt
             : > /tmp/existing_submodule_paths.txt
             echo "No existing submodules"
@@ -483,6 +498,11 @@ jobs:
             REPO_URL_NORM="$(echo "$REPO_URL" | sed -E 's#\\.git$##; s#/$##')"
 
             if [[ "$ITEM_TYPE" == "repo" ]]; then
+              if [[ ! "$REPO_URL_NORM" =~ ^https://github\\.com/[^/]+/[^/]+$ ]]; then
+                echo "❌ Invalid repo URL for submodule: $REPO_URL_NORM"
+                FAILED_COUNT=$((FAILED_COUNT + 1))
+                continue
+              fi
               if grep -qF "$REPO_URL_NORM" /tmp/existing_submodule_urls.txt 2>/dev/null; then
                 echo "⏭️  Skipping existing submodule (URL already present): $REPO_URL_NORM"
                 SKIPPED_COUNT=$((SKIPPED_COUNT + 1))
@@ -632,9 +652,26 @@ jobs:
               ADDED_SKILLS+=("$REPO_URL ($DETECTED_CATEGORY) [markdown]")
               echo "✅ Added markdown skill: $SKILL_FILE"
             else
-              if grep -qF "$SKILL_PATH" /tmp/existing_submodule_paths.txt 2>/dev/null || [[ -e "$SKILL_PATH" ]]; then
-                echo "⏭️  Skipping: target path already exists: $SKILL_PATH"
-                SKIPPED_COUNT=$((SKIPPED_COUNT + 1))
+              if grep -qF "$SKILL_PATH" /tmp/existing_submodule_paths.txt 2>/dev/null; then
+                EXISTING_URL=$(awk -v p="$SKILL_PATH" '$1==p {print $2; exit}' /tmp/existing_submodule_path_url.txt 2>/dev/null || true)
+                if [[ -n "$EXISTING_URL" && "$EXISTING_URL" == "$REPO_URL_NORM" ]]; then
+                  EXISTING_GITLINK=$(git ls-tree HEAD -- "$SKILL_PATH" | awk '{print $3}' | head -n1 || true)
+                  if [[ -n "$EXISTING_GITLINK" ]]; then
+                    echo "⏭️  Skipping existing submodule (path+url match): $SKILL_PATH ($EXISTING_GITLINK)"
+                  else
+                    echo "⏭️  Skipping existing submodule (path+url match): $SKILL_PATH"
+                  fi
+                  SKIPPED_COUNT=$((SKIPPED_COUNT + 1))
+                  continue
+                fi
+                echo "❌ Conflict: submodule path exists with different URL: $SKILL_PATH (found: ${EXISTING_URL:-unknown})"
+                FAILED_COUNT=$((FAILED_COUNT + 1))
+                continue
+              fi
+
+              if [[ -e "$SKILL_PATH" ]]; then
+                echo "❌ Conflict: target path exists but is not a submodule: $SKILL_PATH"
+                FAILED_COUNT=$((FAILED_COUNT + 1))
                 continue
               fi
 
