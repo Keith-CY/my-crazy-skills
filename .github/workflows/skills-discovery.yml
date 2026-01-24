@@ -136,7 +136,11 @@ jobs:
           fi
 
           # Extract owner/repo shorthand and normalize into URLs
-          echo -e "$ISSUE_TEXT" | grep -oE '\b[a-zA-Z0-9_.-]+/[a-zA-Z0-9_.-]+\b' | grep -vE '^https?://' > /tmp/repos_slugs.txt || true
+          ISSUE_TEXT_NO_URLS=$(echo -e "$ISSUE_TEXT" | sed -E 's#https?://[^ )]+##g')
+          echo "$ISSUE_TEXT_NO_URLS" \
+            | grep -oE '\b[a-zA-Z0-9_.-]+/[a-zA-Z0-9_.-]+\b' \
+            | grep -vE '^github\.com/' \
+            > /tmp/repos_slugs.txt || true
           if [[ -s /tmp/repos_slugs.txt ]]; then
             awk '{print "https://github.com/" $0}' /tmp/repos_slugs.txt >> /tmp/repos_urls.txt
           fi
@@ -498,7 +502,7 @@ jobs:
             REPO_URL_NORM="$(echo "$REPO_URL" | sed -E 's#\\.git$##; s#/$##')"
 
             if [[ "$ITEM_TYPE" == "repo" ]]; then
-              if [[ ! "$REPO_URL_NORM" =~ ^https://github\\.com/[^/]+/[^/]+$ ]]; then
+              if [[ ! "$REPO_URL_NORM" =~ ^https://github\.com/[^/]+/[^/]+$ ]]; then
                 echo "❌ Invalid repo URL for submodule: $REPO_URL_NORM"
                 FAILED_COUNT=$((FAILED_COUNT + 1))
                 continue
