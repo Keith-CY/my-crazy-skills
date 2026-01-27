@@ -88,3 +88,45 @@
 [submodule "skills/tooling/resend--email-best-practices"]
 	path = skills/tooling/resend--email-best-practices
 	url = https://github.com/resend/email-best-practices
+[submodule "skills/popular/vercel-labs--skills"]
+	path = skills/popular/vercel-labs--skills
+	url = https://github.com/vercel-labs/skills.git
+[submodule "skills/popular/squirrelscan--skills"]
+	path = skills/popular/squirrelscan--skills
+	url = https://github.com/squirrelscan/skills.git
+[submodule "skills/popular/supabase--agent-skills"]
+	path = skills/popular/supabase--agent-skills
+	url = https://github.com/supabase/agent-skills.git
+[submodule "skills/popular/nextlevelbuilder--ui-ux-pro-max-skill"]
+	path = skills/popular/nextlevelbuilder--ui-ux-pro-max-skill
+	url = https://github.com/nextlevelbuilder/ui-ux-pro-max-skill.git
+[submodule "skills/popular/obra--superpowers"]
+	path = skills/popular/obra--superpowers
+	url = https://github.com/obra/superpowers.git
+[submodule "skills/popular/hyf0--vue-skills"]
+	path = skills/popular/hyf0--vue-skills
+	url = https://github.com/hyf0/vue-skills.git
+[submodule "skills/popular/softaworks--agent-toolkit"]
+	path = skills/popular/softaworks--agent-toolkit
+	url = https://github.com/softaworks/agent-toolkit.git
+[submodule "skills/popular/jimliu--baoyu-skills"]
+	path = skills/popular/jimliu--baoyu-skills
+	url = https://github.com/jimliu/baoyu-skills.git
+[submodule "skills/popular/browser-use--browser-use"]
+	path = skills/popular/browser-use--browser-use
+	url = https://github.com/browser-use/browser-use.git
+[submodule "skills/popular/benjitaylor--agentation"]
+	path = skills/popular/benjitaylor--agentation
+	url = https://github.com/benjitaylor/agentation.git
+[submodule "skills/popular/vercel--ai"]
+	path = skills/popular/vercel--ai
+	url = https://github.com/vercel/ai.git
+[submodule "skills/popular/google-labs-code--stitch-skills"]
+	path = skills/popular/google-labs-code--stitch-skills
+	url = https://github.com/google-labs-code/stitch-skills.git
+[submodule "skills/popular/vercel--turborepo"]
+	path = skills/popular/vercel--turborepo
+	url = https://github.com/vercel/turborepo.git
+[submodule "skills/popular/subsy--ralph-tui"]
+	path = skills/popular/subsy--ralph-tui
+	url = https://github.com/subsy/ralph-tui.git
