@@ -130,3 +130,21 @@
 [submodule "skills/popular/subsy--ralph-tui"]
 	path = skills/popular/subsy--ralph-tui
 	url = https://github.com/subsy/ralph-tui.git
+[submodule "skills/popular/atxp-dev--cli"]
+	path = skills/popular/atxp-dev--cli
+	url = https://github.com/atxp-dev/cli.git
+[submodule "skills/popular/wshobson--agents"]
+	path = skills/popular/wshobson--agents
+	url = https://github.com/wshobson/agents.git
+[submodule "skills/popular/vercel-labs--next-skills"]
+	path = skills/popular/vercel-labs--next-skills
+	url = https://github.com/vercel-labs/next-skills.git
+[submodule "skills/popular/giuseppe-trisciuoglio--developer-kit"]
+	path = skills/popular/giuseppe-trisciuoglio--developer-kit
+	url = https://github.com/giuseppe-trisciuoglio/developer-kit.git
+[submodule "skills/popular/anthropics--claude-code"]
+	path = skills/popular/anthropics--claude-code
+	url = https://github.com/anthropics/claude-code.git
+[submodule "skills/popular/op7418--humanizer-zh"]
+	path = skills/popular/op7418--humanizer-zh
+	url = https://github.com/op7418/humanizer-zh.git
