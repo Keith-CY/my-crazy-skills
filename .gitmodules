@@ -148,3 +148,9 @@
 [submodule "skills/popular/op7418--humanizer-zh"]
 	path = skills/popular/op7418--humanizer-zh
 	url = https://github.com/op7418/humanizer-zh.git
+[submodule "skills/popular/antfu--skills"]
+	path = skills/popular/antfu--skills
+	url = https://github.com/antfu/skills.git
+[submodule "skills/popular/langgenius--dify"]
+	path = skills/popular/langgenius--dify
+	url = https://github.com/langgenius/dify.git
