@@ -154,3 +154,18 @@
 [submodule "skills/popular/langgenius--dify"]
 	path = skills/popular/langgenius--dify
 	url = https://github.com/langgenius/dify.git
+[submodule "skills/popular/avdlee--swiftui-agent-skill"]
+	path = skills/popular/avdlee--swiftui-agent-skill
+	url = https://github.com/avdlee/swiftui-agent-skill.git
+[submodule "skills/popular/kadajett--agent-nestjs-skills"]
+	path = skills/popular/kadajett--agent-nestjs-skills
+	url = https://github.com/kadajett/agent-nestjs-skills.git
+[submodule "skills/popular/intellectronica--agent-skills"]
+	path = skills/popular/intellectronica--agent-skills
+	url = https://github.com/intellectronica/agent-skills.git
+[submodule "skills/popular/resend--email-best-practices"]
+	path = skills/popular/resend--email-best-practices
+	url = https://github.com/resend/email-best-practices.git
+[submodule "skills/popular/f--awesome-chatgpt-prompts"]
+	path = skills/popular/f--awesome-chatgpt-prompts
+	url = https://github.com/f/awesome-chatgpt-prompts.git
