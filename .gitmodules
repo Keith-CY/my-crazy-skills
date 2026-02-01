@@ -169,3 +169,12 @@
 [submodule "skills/popular/f--awesome-chatgpt-prompts"]
 	path = skills/popular/f--awesome-chatgpt-prompts
 	url = https://github.com/f/awesome-chatgpt-prompts.git
+[submodule "skills/popular/napoleond--instaclaw"]
+	path = skills/popular/napoleond--instaclaw
+	url = https://github.com/napoleond/instaclaw.git
+[submodule "skills/popular/napoleond--clawdirect"]
+	path = skills/popular/napoleond--clawdirect
+	url = https://github.com/napoleond/clawdirect.git
+[submodule "skills/popular/jezweb--claude-skills"]
+	path = skills/popular/jezweb--claude-skills
+	url = https://github.com/jezweb/claude-skills.git
