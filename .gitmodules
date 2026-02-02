@@ -178,3 +178,9 @@
 [submodule "skills/popular/jezweb--claude-skills"]
 	path = skills/popular/jezweb--claude-skills
 	url = https://github.com/jezweb/claude-skills.git
+[submodule "skills/popular/firecrawl--cli"]
+	path = skills/popular/firecrawl--cli
+	url = https://github.com/firecrawl/cli.git
+[submodule "skills/popular/google-gemini--gemini-cli"]
+	path = skills/popular/google-gemini--gemini-cli
+	url = https://github.com/google-gemini/gemini-cli.git
