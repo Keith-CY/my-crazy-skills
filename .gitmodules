@@ -184,3 +184,12 @@
 [submodule "skills/popular/google-gemini--gemini-cli"]
 	path = skills/popular/google-gemini--gemini-cli
 	url = https://github.com/google-gemini/gemini-cli.git
+[submodule "skills/popular/resend--react-email"]
+	path = skills/popular/resend--react-email
+	url = https://github.com/resend/react-email.git
+[submodule "skills/popular/othmanadi--planning-with-files"]
+	path = skills/popular/othmanadi--planning-with-files
+	url = https://github.com/othmanadi/planning-with-files.git
+[submodule "skills/popular/onmax--nuxt-skills"]
+	path = skills/popular/onmax--nuxt-skills
+	url = https://github.com/onmax/nuxt-skills.git
