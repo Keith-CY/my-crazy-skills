@@ -193,3 +193,15 @@
 [submodule "skills/popular/onmax--nuxt-skills"]
 	path = skills/popular/onmax--nuxt-skills
 	url = https://github.com/onmax/nuxt-skills.git
+[submodule "skills/popular/inference-sh--skills"]
+	path = skills/popular/inference-sh--skills
+	url = https://github.com/inference-sh/skills.git
+[submodule "skills/popular/zackkorman--skills"]
+	path = skills/popular/zackkorman--skills
+	url = https://github.com/zackkorman/skills.git
+[submodule "skills/popular/vuejs-ai--skills"]
+	path = skills/popular/vuejs-ai--skills
+	url = https://github.com/vuejs-ai/skills.git
+[submodule "skills/popular/sickn33--antigravity-awesome-skills"]
+	path = skills/popular/sickn33--antigravity-awesome-skills
+	url = https://github.com/sickn33/antigravity-awesome-skills.git
