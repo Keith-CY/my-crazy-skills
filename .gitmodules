@@ -205,3 +205,6 @@
 [submodule "skills/popular/sickn33--antigravity-awesome-skills"]
 	path = skills/popular/sickn33--antigravity-awesome-skills
 	url = https://github.com/sickn33/antigravity-awesome-skills.git
+[submodule "skills/tooling/ciembor--agent-rules-books"]
+	path = skills/tooling/ciembor--agent-rules-books
+	url = https://github.com/ciembor/agent-rules-books
